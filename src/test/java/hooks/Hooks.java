@@ -30,9 +30,9 @@ public class Hooks {
             int runId = Integer.parseInt(ConfigReader.get("testrail.runId"));
 
             if (scenario.isFailed()) {
-                testRail.updateResult(runId, caseId, 5, "Failed in automation");
+                testRail.updateResult(runId, caseId, 5, "❌ Failed in automation");
             } else {
-                testRail.updateResult(runId, caseId, 1, "Passed in automation");
+                testRail.updateResult(runId, caseId, 1, "✅ Passed in automation");
             }
         }
         DriverFactory.quitDriver();

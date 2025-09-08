@@ -57,9 +57,9 @@ function toggleAllBoxes() {
 <tr>
 <td>Tests passed/Failed/Skipped:</td><td>0/0/0</td>
 </tr><tr>
-<td>Started on:</td><td>Mon Sep 08 10:47:22 IST 2025</td>
+<td>Started on:</td><td>Mon Sep 08 20:31:40 IST 2025</td>
 </tr>
-<tr><td>Total time:</td><td>3 seconds (3070 ms)</td>
+<tr><td>Total time:</td><td>0 seconds (189 ms)</td>
 </tr><tr>
 <td>Included groups:</td><td></td>
 </tr><tr>
@@ -76,23 +76,63 @@ function toggleAllBoxes() {
 <td><b>Instance</b></td>
 </tr>
 <tr>
-<td title='com.runners.TestRunner.generateFeatureFile()'><b>generateFeatureFile</b><br>Test class: com.runners.TestRunner</td>
-<td><div><pre>org.json.JSONException: A JSONArray text must start with &apos;[&apos; at 1 [character 2 line 1]
-	at org.json.JSONTokener.syntaxError(JSONTokener.java:503)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:89)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:142)
-	at utils.TestRailClient.getCases(TestRailClient.java:34)
-	at utils.TestRailFeatureGenerator.generateFeatures(TestRailFeatureGenerator.java:16)
-	at com.runners.TestRunner.generateFeatureFile(TestRunner.java:36)
+<td title='com.runners.TestRunner.setUpClass()'><b>setUpClass</b><br>Test class: com.runners.TestRunner<br>Parameters: org.testng.TestRunner@2a5b3fee</td>
+<td><div><pre>io.cucumber.core.gherkin.FeatureParserException: Failed to parse resource at: file:///Users/pravali/Documents/GitHub/AutoZenRepo/src/test/resources/features/testrail.feature
+(5:1): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Feature: Facebook Signup&apos;
+(6:3): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Scenario: Complete signup process&apos;
+(7:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Given User opens the Facebook signup page&apos;
+(8:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;When User enters first name &quot;John&quot;&apos;
+(9:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters last name &quot;Doe&quot;&apos;
+(10:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(11:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User re-enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(12:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters a new password &quot;StrongPass@123&quot;&apos;
+(13:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects birth date &quot;10&quot; &quot;May&quot; &quot;1995&quot;&apos;
+(14:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects gender &quot;Male&quot;&apos;
+(15:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User clicks the Sign Up button&apos;
+	at io.cucumber.core.gherkin.messages.GherkinMessagesFeatureParser.parse(GherkinMessagesFeatureParser.java:56)
+	at io.cucumber.core.feature.FeatureParser.parseResource(FeatureParser.java:46)
+	at java.base/java.util.function.BiFunction.lambda$andThen$0(BiFunction.java:70)
+	at io.cucumber.core.resource.ResourceScanner.lambda$processResource$1(ResourceScanner.java:79)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:75)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:60)
+	at java.base/java.nio.file.Files.walkFileTree(Files.java:2799)
+	at io.cucumber.core.resource.PathScanner.findResourcesForPath(PathScanner.java:53)
+	at io.cucumber.core.resource.PathScanner.findResourcesForUri(PathScanner.java:31)
+	at io.cucumber.core.resource.ResourceScanner.findResourcesForUri(ResourceScanner.java:61)
+	at io.cucumber.core.resource.ResourceScanner.scanForResourcesUri(ResourceScanner.java:134)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.loadFeatures(FeaturePathFeatureSupplier.java:62)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.get(FeaturePathFeatureSupplier.java:45)
+	at io.cucumber.testng.TestNGCucumberRunner.&lt;init&gt;(TestNGCucumberRunner.java:122)
+	at io.cucumber.testng.AbstractTestNGCucumberTests.setUpClass(AbstractTestNGCucumberTests.java:27)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
-... Removed 23 stack frames</pre></div><a href='#' onClick='toggleBox("stack-trace1548946718", this, "Click to show all stack frames", "Click to hide stack frames")'>Click to show all stack frames</a>
-<div class='stack-trace' id='stack-trace1548946718'><pre>org.json.JSONException: A JSONArray text must start with &apos;[&apos; at 1 [character 2 line 1]
-	at org.json.JSONTokener.syntaxError(JSONTokener.java:503)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:89)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:142)
-	at utils.TestRailClient.getCases(TestRailClient.java:34)
-	at utils.TestRailFeatureGenerator.generateFeatures(TestRailFeatureGenerator.java:16)
-	at com.runners.TestRunner.generateFeatureFile(TestRunner.java:36)
+... Removed 23 stack frames</pre></div><a href='#' onClick='toggleBox("stack-trace45822040", this, "Click to show all stack frames", "Click to hide stack frames")'>Click to show all stack frames</a>
+<div class='stack-trace' id='stack-trace45822040'><pre>io.cucumber.core.gherkin.FeatureParserException: Failed to parse resource at: file:///Users/pravali/Documents/GitHub/AutoZenRepo/src/test/resources/features/testrail.feature
+(5:1): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Feature: Facebook Signup&apos;
+(6:3): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Scenario: Complete signup process&apos;
+(7:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Given User opens the Facebook signup page&apos;
+(8:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;When User enters first name &quot;John&quot;&apos;
+(9:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters last name &quot;Doe&quot;&apos;
+(10:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(11:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User re-enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(12:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters a new password &quot;StrongPass@123&quot;&apos;
+(13:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects birth date &quot;10&quot; &quot;May&quot; &quot;1995&quot;&apos;
+(14:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects gender &quot;Male&quot;&apos;
+(15:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User clicks the Sign Up button&apos;
+	at io.cucumber.core.gherkin.messages.GherkinMessagesFeatureParser.parse(GherkinMessagesFeatureParser.java:56)
+	at io.cucumber.core.feature.FeatureParser.parseResource(FeatureParser.java:46)
+	at java.base/java.util.function.BiFunction.lambda$andThen$0(BiFunction.java:70)
+	at io.cucumber.core.resource.ResourceScanner.lambda$processResource$1(ResourceScanner.java:79)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:75)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:60)
+	at java.base/java.nio.file.Files.walkFileTree(Files.java:2799)
+	at io.cucumber.core.resource.PathScanner.findResourcesForPath(PathScanner.java:53)
+	at io.cucumber.core.resource.PathScanner.findResourcesForUri(PathScanner.java:31)
+	at io.cucumber.core.resource.ResourceScanner.findResourcesForUri(ResourceScanner.java:61)
+	at io.cucumber.core.resource.ResourceScanner.scanForResourcesUri(ResourceScanner.java:134)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.loadFeatures(FeaturePathFeatureSupplier.java:62)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.get(FeaturePathFeatureSupplier.java:45)
+	at io.cucumber.testng.TestNGCucumberRunner.&lt;init&gt;(TestNGCucumberRunner.java:122)
+	at io.cucumber.testng.AbstractTestNGCucumberTests.setUpClass(AbstractTestNGCucumberTests.java:27)
 	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
 	at org.testng.internal.invokers.MethodInvocationHelper.invokeMethod(MethodInvocationHelper.java:141)
@@ -118,8 +158,8 @@ function toggleAllBoxes() {
 	at org.testng.remote.RemoteTestNG.initAndRun(RemoteTestNG.java:293)
 	at org.testng.remote.RemoteTestNG.main(RemoteTestNG.java:91)
 </pre></div></td>
-<td>2</td>
-<td>com.runners.TestRunner@139982de</td></tr>
+<td>0</td>
+<td>com.runners.TestRunner@1f2586d6</td></tr>
 </table><p>
 </body>
 </html>

@@ -9,17 +9,37 @@
 <table>
 <tr><th>Test</th><th># Passed</th><th># Skipped</th><th># Retried</th><th># Failed</th><th>Time (ms)</th><th>Included Groups</th><th>Excluded Groups</th></tr>
 <tr><th colspan="8">Cucumber-Selenium-TestRail Suite</th></tr>
-<tr><td><a href="#t0">Cucumber Tests</a></td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">3,070</td><td></td><td></td></tr>
+<tr><td><a href="#t0">Cucumber Tests</a></td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">189</td><td></td><td></td></tr>
 </table>
-<table id='summary'><thead><tr><th>Class</th><th>Method</th><th>Start</th><th>Time (ms)</th></tr></thead><tbody><tr><th colspan="4">Cucumber-Selenium-TestRail Suite</th></tr></tbody><tbody id="t0"><tr><th colspan="4">Cucumber Tests &#8212; failed (configuration methods)</th></tr><tr class="failedeven"><td rowspan="1">com.runners.TestRunner</td><td><a href="#m0">generateFeatureFile</a></td><td rowspan="1">1757308643491</td><td rowspan="1">2387</td></tr></tbody>
+<table id='summary'><thead><tr><th>Class</th><th>Method</th><th>Start</th><th>Time (ms)</th></tr></thead><tbody><tr><th colspan="4">Cucumber-Selenium-TestRail Suite</th></tr></tbody><tbody id="t0"><tr><th colspan="4">Cucumber Tests &#8212; failed (configuration methods)</th></tr><tr class="failedeven"><td rowspan="1">com.runners.TestRunner</td><td><a href="#m0">setUpClass</a></td><td rowspan="1">1757343700657</td><td rowspan="1">133</td></tr></tbody>
 </table>
-<h2>Cucumber Tests</h2><h3 id="m0">com.runners.TestRunner#generateFeatureFile</h3><table class="result"><tr><th>Exception</th></tr><tr><td><div class="stacktrace">org.json.JSONException: A JSONArray text must start with &apos;[&apos; at 1 [character 2 line 1]
-	at org.json.JSONTokener.syntaxError(JSONTokener.java:503)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:89)
-	at org.json.JSONArray.&lt;init&gt;(JSONArray.java:142)
-	at utils.TestRailClient.getCases(TestRailClient.java:34)
-	at utils.TestRailFeatureGenerator.generateFeatures(TestRailFeatureGenerator.java:16)
-	at com.runners.TestRunner.generateFeatureFile(TestRunner.java:36)
+<h2>Cucumber Tests</h2><h3 id="m0">com.runners.TestRunner#setUpClass</h3><table class="result"><tr class="param"><th>Parameter #1</th></tr><tr class="param stripe"><td>org.testng.TestRunner@2a5b3fee</td></tr><tr><th>Exception</th></tr><tr><td><div class="stacktrace">io.cucumber.core.gherkin.FeatureParserException: Failed to parse resource at: file:///Users/pravali/Documents/GitHub/AutoZenRepo/src/test/resources/features/testrail.feature
+(5:1): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Feature: Facebook Signup&apos;
+(6:3): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Scenario: Complete signup process&apos;
+(7:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;Given User opens the Facebook signup page&apos;
+(8:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;When User enters first name &quot;John&quot;&apos;
+(9:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters last name &quot;Doe&quot;&apos;
+(10:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(11:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User re-enters mobile number or email &quot;john.doe@example.com&quot;&apos;
+(12:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User enters a new password &quot;StrongPass@123&quot;&apos;
+(13:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects birth date &quot;10&quot; &quot;May&quot; &quot;1995&quot;&apos;
+(14:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User selects gender &quot;Male&quot;&apos;
+(15:5): expected: #TagLine, #RuleLine, #Comment, #Empty, got &apos;And User clicks the Sign Up button&apos;
+	at io.cucumber.core.gherkin.messages.GherkinMessagesFeatureParser.parse(GherkinMessagesFeatureParser.java:56)
+	at io.cucumber.core.feature.FeatureParser.parseResource(FeatureParser.java:46)
+	at java.base/java.util.function.BiFunction.lambda$andThen$0(BiFunction.java:70)
+	at io.cucumber.core.resource.ResourceScanner.lambda$processResource$1(ResourceScanner.java:79)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:75)
+	at io.cucumber.core.resource.PathScanner$ResourceFileVisitor.visitFile(PathScanner.java:60)
+	at java.base/java.nio.file.Files.walkFileTree(Files.java:2799)
+	at io.cucumber.core.resource.PathScanner.findResourcesForPath(PathScanner.java:53)
+	at io.cucumber.core.resource.PathScanner.findResourcesForUri(PathScanner.java:31)
+	at io.cucumber.core.resource.ResourceScanner.findResourcesForUri(ResourceScanner.java:61)
+	at io.cucumber.core.resource.ResourceScanner.scanForResourcesUri(ResourceScanner.java:134)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.loadFeatures(FeaturePathFeatureSupplier.java:62)
+	at io.cucumber.core.runtime.FeaturePathFeatureSupplier.get(FeaturePathFeatureSupplier.java:45)
+	at io.cucumber.testng.TestNGCucumberRunner.&lt;init&gt;(TestNGCucumberRunner.java:122)
+	at io.cucumber.testng.AbstractTestNGCucumberTests.setUpClass(AbstractTestNGCucumberTests.java:27)
 	at java.base/java.util.ArrayList.forEach(ArrayList.java:1596)
 ... Removed 23 stack frames</div></td></tr></table><p class="totop"><a href="#summary">back to summary</a></p>
 </body>

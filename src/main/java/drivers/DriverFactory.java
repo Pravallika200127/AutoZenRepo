@@ -1,31 +1,25 @@
 package drivers;
 
-import config.ConfigReader;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 
 public class DriverFactory {
-    private static WebDriver driver;
+    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
 
-    public static WebDriver initDriver() {
-        String browser = ConfigReader.get("browser");
-        if (browser.equalsIgnoreCase("chrome")) {
-            driver = new ChromeDriver();
-        } else {
-            throw new RuntimeException("Unsupported browser: " + browser);
+    public static void initDriver() {
+        if (driver.get() == null) {
+            driver.set(new ChromeDriver());
         }
-        driver.manage().window().maximize();
-        return driver;
     }
 
     public static WebDriver getDriver() {
-        return driver;
+        return driver.get();
     }
 
     public static void quitDriver() {
-        if (driver != null) {
-            driver.quit();
-            driver = null;
+        if (driver.get() != null) {
+            driver.get().quit();
+            driver.remove();
         }
     }
 }

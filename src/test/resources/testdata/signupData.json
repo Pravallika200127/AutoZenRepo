@@ -1,0 +1,12 @@
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "password": "StrongPass@123",
+  "dob": {
+    "day": "10",
+    "month": "May",
+    "year": "1995"
+  },
+  "gender": "Male"
+}

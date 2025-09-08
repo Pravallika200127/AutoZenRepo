@@ -1,89 +1,74 @@
 package utils;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.google.gson.*;
+import okhttp3.*;
+import okio.ByteString;
 
-import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.io.IOException;
+import java.util.*;
 
 public class TestRailClient {
-    private final String baseUrl;
-    private final String username;
-    private final String apiKey;
 
-    public TestRailClient(String baseUrl, String username, String apiKey) {
-        this.baseUrl = baseUrl;
-        this.username = username;
-        this.apiKey = apiKey;
+    private final String base;
+    private final String auth;
+    private final OkHttpClient http = new OkHttpClient();
+    private final Gson gson = new Gson();
+
+    public TestRailClient(String baseUrl, String user, String apiKey) {
+        this.base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        this.auth = "Basic " + ByteString.encodeUtf8(user + ":" + apiKey).base64();
     }
 
-    public List<JSONObject> getCases(int projectId, int suiteId) throws Exception {
-        String endpoint = String.format("%s/index.php?/api/v2/get_cases/%d&suite_id=%d",
-                baseUrl, projectId, suiteId);
-
-        String response = sendGetRequest(endpoint).trim();
-        JSONObject root = new JSONObject(response);
-
-        if (!root.has("cases")) {
-            throw new RuntimeException("❌ TestRail API response does not contain 'cases'. Response:\n" + response);
-        }
-
-        JSONArray casesArray = root.getJSONArray("cases");
-        return casesArray.toList().stream()
-                .map(o -> new JSONObject((Map<?, ?>) o))
-                .collect(Collectors.toList());
-    }
-
-    public void updateResult(int runId, int caseId, int statusId, String comment) throws Exception {
-        String endpoint = String.format("%s/index.php?/api/v2/add_result_for_case/%d/%d",
-                baseUrl, runId, caseId);
-
-        JSONObject json = new JSONObject();
-        json.put("status_id", statusId);
-        json.put("comment", comment);
-
-        URL url = new URL(endpoint);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("POST");
-        conn.setRequestProperty("Content-Type", "application/json");
-
-        String auth = username + ":" + apiKey;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-        conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
-        conn.setDoOutput(true);
-
-        conn.getOutputStream().write(json.toString().getBytes());
-        conn.getOutputStream().flush();
-        conn.getOutputStream().close();
-
-        if (conn.getResponseCode() < 200 || conn.getResponseCode() >= 300) {
-            throw new RuntimeException("Failed to update TestRail result. HTTP code: " + conn.getResponseCode());
+    private String get(String path) throws IOException {
+        Request req = new Request.Builder()
+                .url(base + path)
+                .addHeader("Authorization", auth)
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) throw new IOException("GET " + path + " -> " + r.code());
+            return r.body().string();
         }
     }
 
-    private String sendGetRequest(String endpoint) throws Exception {
-        URL url = new URL(endpoint);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-        conn.setRequestMethod("GET");
-
-        String auth = username + ":" + apiKey;
-        String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes());
-        conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
-
-        BufferedReader in = new BufferedReader(new InputStreamReader(
-                conn.getResponseCode() >= 200 && conn.getResponseCode() < 300 ?
-                        conn.getInputStream() : conn.getErrorStream()));
-
-        StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = in.readLine()) != null) response.append(line);
-        in.close();
-
-        return response.toString();
+    private JsonObject post(String path, JsonObject body) throws IOException {
+        RequestBody rb = RequestBody.create(gson.toJson(body), MediaType.get("application/json"));
+        Request req = new Request.Builder()
+                .url(base + path)
+                .addHeader("Authorization", auth)
+                .post(rb)
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful())
+                throw new IOException("POST " + path + " -> " + r.code() + " " + r.message());
+            return JsonParser.parseString(r.body().string()).getAsJsonObject();
+        }
     }
+
+    // ---- Cases ----
+    public List<JsonObject> getCases(int projectId, Integer suiteId) throws IOException {
+        String path = suiteId == null
+                ? "index.php?/api/v2/get_cases/" + projectId
+                : "index.php?/api/v2/get_cases/" + projectId + "&suite_id=" + suiteId;
+
+        String json = get(path);
+        JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+
+        // The "cases" field contains the array of test cases
+        JsonArray arr = obj.getAsJsonArray("cases");
+        List<JsonObject> cases = new ArrayList<>();
+        for (JsonElement e : arr) {
+            cases.add(e.getAsJsonObject());
+        }
+        return cases;
+    }
+
+    // ---- Update result for a case ----
+    public void updateResult(int runId, int caseId, int statusId, String comment) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("status_id", statusId); // 1=Passed,5=Failed
+        if (comment != null) body.addProperty("comment", comment);
+
+        post("index.php?/api/v2/case/" + runId + "/" + caseId, body);
+    }
+
 }

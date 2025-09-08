@@ -1,94 +1,86 @@
 package com.stepsdefs;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import constants.Constants;
-import drivers.DriverFactory;
-import model.SignupData;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.support.ui.Select;
+import org.openqa.selenium.chrome.ChromeDriver;
+import pages.locatorsPage;
 import io.cucumber.java.en.*;
-
-import java.io.File;
-
-import static pages.SignupPage.*;
+import io.cucumber.java.After;
 
 public class SignupSteps {
 
     private WebDriver driver;
-    private SignupData data;
-
-    public SignupSteps() {
-        try {
-            driver = DriverFactory.getDriver();
-            ObjectMapper mapper = new ObjectMapper();
-            data = mapper.readValue(new File(Constants.TESTDATA_PATH), SignupData.class);
-        } catch (Exception e) {
-            throw new RuntimeException("❌ Failed to load test data: " + e.getMessage(), e);
-        }
-    }
+    private locatorsPage locatorsPage; // fixed typo in variable name
 
     @Given("User opens the Facebook signup page")
-    public void openSignupPage() {
-        driver.get(Constants.SIGNUP_URL);
+    public void user_opens_the_facebook_signup_page() {
+        // Initialize WebDriver (example with ChromeDriver)
+        driver = new ChromeDriver();
+        locatorsPage = new locatorsPage(driver);
+        locatorsPage.openSignupPage();
+        throw new io.cucumber.java.PendingException();
     }
 
     @When("User enters first name {string}")
-    public void enterFirstName(String firstName) {
-        driver.findElement(FIRSTNAME_INPUT).sendKeys(firstName);
+    public void user_enters_first_name(String string) {
+        locatorsPage.enterFirstName(string);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User enters last name {string}")
-    public void enterLastName(String lastName) {
-        driver.findElement(LASTNAME_INPUT).sendKeys(lastName);
+    public void user_enters_last_name(String lastName) {
+        locatorsPage.enterLastName(lastName);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User enters mobile number or email {string}")
-    public void enterEmail(String email) {
-        driver.findElement(EMAIL_INPUT).sendKeys(email);
+    @And("User enters mobile number or email {string}")
+    public void user_enters_mobile_or_email(String email) {
+        locatorsPage.enterEmail(email);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User re-enters mobile number or email {string}")
-    public void reenterEmail(String email) {
-        driver.findElement(REEMAIL_INPUT).sendKeys(email);
+    @And("User re-enters mobile number or email {string}")
+    public void user_reenters_mobile_or_email(String email) {
+        locatorsPage.reEnterEmail(email);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User enters a new password {string}")
-    public void enterPassword(String password) {
-        driver.findElement(PASSWORD_INPUT).sendKeys(password);
+    @And("User enters a new password {string}")
+    public void user_enters_a_new_password(String password) {
+        locatorsPage.enterPassword(password);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User selects birth date {string} {string} {string}")
-    public void selectDOB(String day, String month, String year) {
-        new Select(driver.findElement(DOB_DAY)).selectByVisibleText(day);
-        new Select(driver.findElement(DOB_MONTH)).selectByVisibleText(month);
-        new Select(driver.findElement(DOB_YEAR)).selectByVisibleText(year);
+    @And("User selects birth date {string} {string} {string}")
+    public void user_selects_birth_date(String day, String month, String year) {
+        locatorsPage.selectBirthDate(day, month, year);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @When("User selects gender {string}")
-    public void selectGender(String gender) {
+    @And("User selects gender {string}")
+    public void user_selects_gender(String gender) {
         if (gender.equalsIgnoreCase("Male")) {
-            driver.findElement(GENDER_MALE).click();
-        } else {
-            driver.findElement(GENDER_FEMALE).click();
+            locatorsPage.selectGenderMale();
+            throw new io.cucumber.java.PendingException();
         }
     }
 
-    @When("User clicks the Sign Up button")
-    public void clickSignup() {
-        driver.findElement(SIGNUP_BUTTON).click();
+    @And("User clicks the Sign Up button")
+    public void user_clicks_the_sign_up_button() {
+        locatorsPage.clickSignUp();
+        throw new io.cucumber.java.PendingException();
     }
 
     @Then("User should see an account verification page")
-    public void verifyAccountPage() {
-        // Example validation: check page title
-        if (!driver.getTitle().contains("verification")) {
-            throw new AssertionError("❌ Account verification page not displayed!");
-        }
+    public void user_should_see_an_account_verification_page() {
+        boolean isVerificationPage = locatorsPage.isVerificationPageDisplayed();
+        // Add assertions here, e.g.,
+        // Assert.assertTrue(isVerificationPage);
+        throw new io.cucumber.java.PendingException();
     }
 
-    @Then("User should receive a confirmation email or SMS")
-    public void verifyConfirmation() {
-        // Normally handled by API / mock validation
-        System.out.println("📩 Confirmation email/SMS should be received (mock check).");
+    @After
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
     }
 }

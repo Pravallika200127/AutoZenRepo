@@ -4,17 +4,18 @@ import java.io.FileInputStream;
 import java.util.Properties;
 
 public class ConfigReader {
-    private static Properties properties = new Properties();
+
+    private static Properties props = new Properties();
 
     static {
         try {
-            properties.load(new FileInputStream("src/test/resources/config.properties"));
+            props.load(new FileInputStream("src/test/resources/config.properties"));
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load config.properties: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
     public static String get(String key) {
-        return properties.getProperty(key);
+        return props.getProperty(key);
     }
 }

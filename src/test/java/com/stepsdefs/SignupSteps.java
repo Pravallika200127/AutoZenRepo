@@ -30,7 +30,7 @@ public class SignupSteps {
     @When("User enters valid credentials")
     public void enterCredentials() {
         // Generic type actions - automatically handles NoSuchElement, StaleElement, etc.
-        actions.type(By.id("usernames"), "2021hx70001@wilp.bits-pilani.ac.in");
+        actions.type(By.id("username"), "2021hx70001@wilp.bits-pilani.ac.in");
         actions.type(By.xpath("//input[@id='password']"), "Pravallika@2001");
         
         // Generic click action - automatically handles all click failures

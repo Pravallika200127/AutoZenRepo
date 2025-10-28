@@ -1,3 +1,4 @@
+# Robust CI for Chrome, Firefox, Edge, Safari
 name: CI AutoZen Pipeline with Cross-Browser Testing
 
 on:
@@ -30,11 +31,9 @@ jobs:
             browser-version: system
 
     steps:
-      # ✅ Checkout code
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ✅ Set up JDK
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -42,7 +41,6 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # ✅ Cache Maven dependencies
       - name: Cache Maven Packages
         uses: actions/cache@v4
         with:
@@ -50,13 +48,6 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2-
-
-      # ✅ Setup browsers
-      - name: Setup Chrome
-        if: matrix.browser == 'chrome'
-        uses: browser-actions/setup-geckodriver@latest
-        with:
-          chrome-version: ${{ matrix.browser-version }}
 
       - name: Setup Firefox
         if: matrix.browser == 'firefox'
@@ -66,18 +57,25 @@ jobs:
 
       - name: Setup Edge
         if: matrix.browser == 'edge'
-        uses: browser-actions/setup-geckodriver@latest
-        with:
-          edge-version: ${{ matrix.browser-version }}
+        run: |
+          EDGE_BIN=$(command -v microsoft-edge || command -v microsoft-edge-stable || command -v msedge || true)
+          if [ -n "$EDGE_BIN" ]; then
+            EDGE_VERSION=$($EDGE_BIN --version | awk '{print $NF}')
+            MAJOR=$(echo "$EDGE_VERSION" | cut -d. -f1)
+            DRIVER_VERSION=$(wget -qO- "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR}" 2>/dev/null || true)
+          fi
+          if [ -z "${DRIVER_VERSION:-}" ]; then
+            DRIVER_VERSION=$(wget -qO- "https://msedgedriver.azureedge.net/LATEST_RELEASE" 2>/dev/null || curl -sS "https://msedgedriver.azureedge.net/LATEST_RELEASE" 2>/dev/null || true)
+          fi
+          echo "EdgeDriver version to download: ${DRIVER_VERSION}"
+          echo "DRIVER_VERSION=${DRIVER_VERSION}" >> $GITHUB_ENV
 
       - name: Enable Safari Driver
         if: matrix.browser == 'safari'
         run: |
-          echo "Enabling Safari WebDriver..."
-          safaridriver --enable
-          safaridriver --version
+          sudo safaridriver --enable
+          safaridriver --version || true
 
-      # ✅ Setup WebDrivers
       - name: Setup ChromeDriver
         if: matrix.browser == 'chrome'
         uses: nanasess/setup-chromedriver@v2
@@ -89,31 +87,51 @@ jobs:
       - name: Setup EdgeDriver
         if: matrix.browser == 'edge'
         run: |
-          echo "Setting up EdgeDriver..."
-          EDGE_VERSION=$(microsoft-edge --version | awk '{print $3}' | cut -d'.' -f1)
-          wget "https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0/edgedriver_linux64.zip" -O edgedriver.zip || wget "https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0.0/edgedriver_linux64.zip" -O edgedriver.zip
-          unzip edgedriver.zip
-          sudo mv msedgedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/msedgedriver
+          set -euo pipefail
+          DRIVER_VERSION=${{ env.DRIVER_VERSION }}
+          if [ -z "${DRIVER_VERSION:-}" ] || [ "${DRIVER_VERSION}" = "null" ]; then
+            DRIVER_VERSION=$(wget -qO- "https://msedgedriver.azureedge.net/LATEST_RELEASE_"${MAJOR} 2>/dev/null || wget -qO- "https://msedgedriver.azureedge.net/LATEST_RELEASE" 2>/dev/null || true)
+          fi
+          if [ -z "${DRIVER_VERSION:-}" ]; then
+            DRIVER_VERSION=$(curl -sS "https://msedgedriver.azureedge.net/LATEST_RELEASE" || true)
+          fi
+          echo "Downloading EdgeDriver version: ${DRIVER_VERSION}"
+          URL="https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
+          ZIP=edgedriver_linux64.zip
+          for i in 1 2 3 4 5; do
+            if wget -q --timeout=30 --tries=1 "$URL" -O "$ZIP"; then
+              echo "Downloaded EdgeDriver on attempt $i"
+              break
+            fi
+            echo "Attempt $i failed; retrying in 5s..."
+            sleep 5
+          done
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: Failed to download EdgeDriver from $URL"
+            exit 1
+          fi
+          unzip -q "$ZIP"
+          chmod +x msedgedriver
+          sudo mv msedgedriver /usr/local/bin/msedgedriver
+          rm -f "$ZIP"
+          msedgedriver --version || true
 
-      # ✅ Verify browser + driver versions
       - name: Display Browser and Driver Versions
         run: |
           if [ "${{ matrix.browser }}" == "chrome" ]; then
-            google-chrome --version
-            chromedriver --version
+            google-chrome --version || google-chrome-stable --version || true
+            chromedriver --version || true
           elif [ "${{ matrix.browser }}" == "firefox" ]; then
-            firefox --version
-            geckodriver --version
+            firefox --version || true
+            geckodriver --version || true
           elif [ "${{ matrix.browser }}" == "edge" ]; then
-            microsoft-edge --version
-            msedgedriver --version
+            microsoft-edge --version || msedge --version || true
+            msedgedriver --version || true
           elif [ "${{ matrix.browser }}" == "safari" ]; then
-            safaridriver --version
-            sw_vers
+            safaridriver --version || true
+            sw_vers || true
           fi
 
-      # ✅ Run tests (continue even if failures occur)
       - name: Run Tests with Maven (${{ matrix.browser }})
         run: mvn clean test -Dmaven.test.failure.ignore=true -Dbrowser=${{ matrix.browser }} -Dheadless=true
         env:
@@ -126,7 +144,6 @@ jobs:
           BASE_URL: ${{ secrets.BASE_URL }}
           BROWSER: ${{ matrix.browser }}
 
-      # ✅ Show failed tests summary
       - name: Show Failing Tests Summary
         if: always()
         run: |
@@ -136,7 +153,6 @@ jobs:
           grep -i "FAILED" target/surefire-reports/*.txt || echo "✅ No failed tests detected"
           echo "---------------------------------------"
 
-      # ✅ Upload test reports
       - name: Upload Test Reports (${{ matrix.browser }})
         if: always()
         uses: actions/upload-artifact@v4
@@ -149,7 +165,6 @@ jobs:
             target/extent-report/
           retention-days: 30
 
-      # ✅ Upload screenshots on failure
       - name: Upload Screenshots (${{ matrix.browser }})
         if: failure()
         uses: actions/upload-artifact@v4
@@ -158,7 +173,6 @@ jobs:
           path: screenshots/
           retention-days: 7
 
-  # ✅ Summary + Slack
   summary:
     name: Test Summary & Slack Notification
     runs-on: ubuntu-latest
@@ -184,8 +198,7 @@ jobs:
             STATUS_EMOJI=":x:"
           fi
           curl -X POST -H 'Content-type: application/json' \
-            --data "{
-              \"text\": \"${STATUS_EMOJI} *CI AutoZen Pipeline with Cross-Browser Testing* \n
+            --data "{\"text\": \"${STATUS_EMOJI} *CI AutoZen Pipeline with Cross-Browser Testing* \n
               *Repository:* ${GITHUB_REPOSITORY}\n
               *Branch:* ${GITHUB_REF_NAME}\n
               *Status:* ${STATUS}\n

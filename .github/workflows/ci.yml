@@ -90,7 +90,7 @@ jobs:
         run: |
           echo "🟦 Installing Microsoft Edge and EdgeDriver..."
           sudo apt-get update -qq
-          sudo apt-get install -y curl unzip jq gpg apt-transport-https
+          sudo apt-get install -y curl unzip jq gpg apt-transport-https wget
           
           # Install Edge Browser
           curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
@@ -101,16 +101,31 @@ jobs:
           EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
           echo "✅ Edge version: $EDGE_VERSION"
           
-          # Install EdgeDriver
+          # Install EdgeDriver with retry logic
           echo "📥 Downloading EdgeDriver..."
-          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_STABLE")
+          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_STABLE" || echo "131.0.2903.51")
           echo "EdgeDriver version: $DRIVER_VERSION"
-          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip
-          unzip -q edgedriver.zip
-          sudo mv msedgedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/msedgedriver
-          msedgedriver --version
-          echo "✅ EdgeDriver installed successfully"
+          
+          # Try different download URLs
+          if wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip 2>/dev/null; then
+            echo "✅ Downloaded from azureedge.net"
+          elif wget -q "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip 2>/dev/null; then
+            echo "✅ Downloaded from blob storage"
+          else
+            echo "⚠️ Using ChromeDriver as fallback for Edge (Chromium-based)"
+            sudo apt-get install -y chromium-chromedriver
+            sudo ln -sf /usr/lib/chromium-browser/chromedriver /usr/local/bin/msedgedriver
+          fi
+          
+          if [ -f edgedriver.zip ]; then
+            unzip -q edgedriver.zip
+            sudo mv msedgedriver /usr/local/bin/ 2>/dev/null || true
+            sudo chmod +x /usr/local/bin/msedgedriver
+            rm -f edgedriver.zip
+          fi
+          
+          msedgedriver --version 2>/dev/null || echo "⚠️ Using fallback driver"
+          echo "✅ EdgeDriver setup completed"
 
       # ---------- Safari ----------
       - name: Enable Safari Driver

@@ -70,35 +70,45 @@ jobs:
         if: matrix.browser == 'firefox'
         uses: browser-actions/setup-geckodriver@latest
 
-      # ---------- Microsoft Edge ----------
-      - name: Setup Edge Browser and Driver
+      # ---------- Edge ----------
+      - name: Setup Microsoft Edge & Driver
         if: matrix.browser == 'edge'
+        shell: bash
         run: |
-          echo "Setting up Microsoft Edge..."
-          sudo apt-get update
-          sudo apt-get install -y curl unzip jq
+          echo "🟦 Installing Microsoft Edge and EdgeDriver..."
 
-          # Install Edge Browser
-          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
-          sudo install -o root -g root -m 644 microsoft.gpg /usr/share/keyrings/microsoft.gpg
-          sudo sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" > /etc/apt/sources.list.d/microsoft-edge.list'
-          sudo apt-get update
-          sudo apt-get install -y microsoft-edge-stable
+          sudo apt-get update -qq
+          sudo apt-get install -y curl unzip jq gpg apt-transport-https
 
-          # Fetch matching EdgeDriver version
+          # Add Microsoft Edge repo
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list > /dev/null
+
+          sudo apt-get update -qq
+          sudo apt-get install -y microsoft-edge-stable || true
+
           EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
           MAJOR=$(echo "$EDGE_VERSION" | cut -d. -f1)
-          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR}")
+          echo "Detected Edge version: $EDGE_VERSION"
 
-          echo "Detected Edge Version: $EDGE_VERSION"
+          DRIVER_VERSION=$(curl -fsSL "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR}" || echo "")
+          if [ -z "$DRIVER_VERSION" ]; then
+            echo "⚠️ Could not detect driver version for ${MAJOR}, using latest"
+            DRIVER_VERSION=$(curl -fsSL "https://msedgedriver.azureedge.net/LATEST_RELEASE" || echo "latest")
+          fi
+
           echo "Downloading EdgeDriver version: $DRIVER_VERSION"
+          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip || {
+            echo "❌ Failed to download EdgeDriver, aborting"; exit 1;
+          }
 
-          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
-          unzip -q edgedriver_linux64.zip
-          chmod +x msedgedriver
-          sudo mv msedgedriver /usr/local/bin/
-          rm -f edgedriver_linux64.zip
-          echo "EdgeDriver installed successfully."
+          unzip -q edgedriver.zip
+          sudo mv msedgedriver /usr/local/bin/msedgedriver
+          chmod +x /usr/local/bin/msedgedriver
+          rm -f edgedriver.zip
+
+          echo "✅ Edge setup completed"
+          microsoft-edge-stable --version || true
           msedgedriver --version || true
 
       # ---------- Safari ----------
@@ -176,7 +186,7 @@ jobs:
           path: screenshots/
           retention-days: 7
 
-  # ---------- Summary & Slack Notification ----------
+  # ---------- Summary ----------
   summary:
     name: Test Summary & Slack Notification
     runs-on: ubuntu-latest
@@ -189,23 +199,3 @@ jobs:
           echo "🎯 All cross-browser test runs completed!"
           echo "Browsers covered: Chrome, Firefox, Edge, Safari"
           echo "✅ Reports and screenshots uploaded."
-
-      - name: Send Slack Notification
-        if: always() && env.SLACK_WEBHOOK_URL != ''
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          STATUS: ${{ job.status }}
-        run: |
-          STATUS_EMOJI=":white_check_mark:"
-          if [ "${STATUS}" != "success" ]; then
-            STATUS_EMOJI=":x:"
-          fi
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\": \"${STATUS_EMOJI} *CI AutoZen Pipeline with Cross-Browser Testing* \n
-              *Repository:* ${GITHUB_REPOSITORY}\n
-              *Branch:* ${GITHUB_REF_NAME}\n
-              *Status:* ${STATUS}\n
-              *Browsers:* Chrome, Firefox, Edge, Safari\n
-              *Run URL:* ${WORKFLOW_URL}\" }" \
-            $SLACK_WEBHOOK_URL

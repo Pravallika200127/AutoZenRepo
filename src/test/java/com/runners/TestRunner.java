@@ -1,33 +1,92 @@
 package com.runners;
 
-import config.ConfigReader;
-import utils.TestRailClient;
-import utils.TestRailFeatureGenerator;
 import io.cucumber.testng.AbstractTestNGCucumberTests;
 import io.cucumber.testng.CucumberOptions;
 import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.AfterSuite;
+import config.ConfigReader;
+import utils.Client;
+import utils.FeatureGenerator;
+
+import java.io.File;
 
 @CucumberOptions(
 	    features = "src/test/resources/features",
-	    glue = "stepDefinitions",
-	    plugin = {"pretty", "html:target/cucumber-reports"},
-	    publish = true
+	    glue = {"com.stepsdefs", "hooks"},
+	    plugin = {
+	    		 "pretty",
+	    	        "html:reports/cucumber-html-report.html",
+	    	        "json:reports/cucumber.json",
+	    	        "com.aventstack.extentreports.cucumber.adapter.ExtentCucumberAdapter:"
+	    },
+	    monochrome = true
 	)
-public class TestRunner extends AbstractTestNGCucumberTests {
+	public class TestRunner extends AbstractTestNGCucumberTests {
+	
+    static {
+        // Generate feature files BEFORE Cucumber initialization
+        System.out.println("🔄 Initializing TestRail integration framework...");
+        generateFeaturesBeforeCucumber();
+    }
+
+    private static void generateFeaturesBeforeCucumber() {
+        try {
+            System.out.println("✅ Configuration loaded successfully from: src/test/resources/config.properties\n");
+
+            String testCaseIdStr = ConfigReader.get("testrail.caseId");
+            if (testCaseIdStr == null || testCaseIdStr.isEmpty()) {
+                throw new RuntimeException("❌ testrail.caseId not configured in config.properties");
+            }
+
+            // Handle both "C40" and "40" formats
+            if (testCaseIdStr.startsWith("C")) {
+                testCaseIdStr = testCaseIdStr.substring(1);
+            }
+
+            int testCaseId = Integer.parseInt(testCaseIdStr);
+
+            // Initialize TestRail client and feature generator
+            Client testRailClient = new Client();
+            FeatureGenerator generator = new FeatureGenerator(testRailClient);
+
+            System.out.println("📝 Generating feature file for TestRail case C" + testCaseId + "...");
+            String featureFilePath = generator.generateFeatureFile(testCaseId);
+            System.out.println("✅ Feature file generated successfully: " + featureFilePath + "\n");
+
+        } catch (Exception e) {
+            System.err.println("❌ Error generating features from TestRail: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to generate feature files", e);
+        }
+    }
 
     @BeforeSuite
-    public void generateFeatures() throws Exception {
-        TestRailClient client = new TestRailClient(
-            ConfigReader.get("testrail.url"),
-            ConfigReader.get("testrail.username"),
-            ConfigReader.get("testrail.apikey")
-        );
+    public void beforeSuite() {
+        System.out.println("\n" + "=".repeat(90));
+        System.out.println("🚀 STARTING TESTRAIL AUTOMATION SUITE");
+        System.out.println("=".repeat(90));
+        System.out.println("🔗 TestRail URL: " + ConfigReader.get("testrail.url"));
+        System.out.println("📁 Project ID: " + ConfigReader.get("testrail.projectId"));
+        System.out.println("📂 Suite ID: " + ConfigReader.get("testrail.suiteId"));
+        System.out.println("🧩 Case ID: " + ConfigReader.get("testrail.caseId"));
+        System.out.println("🌐 Browser: " + ConfigReader.get("browser"));
+        System.out.println("=".repeat(90) + "\n");
 
-        TestRailFeatureGenerator generator = new TestRailFeatureGenerator(client);
-        generator.generateFeatures(
-            Integer.parseInt(ConfigReader.get("testrail.projectId")),
-            Integer.parseInt(ConfigReader.get("testrail.suiteId")),
-            "src/test/resources/features"
-        );
+        // Create reports directory if it doesn't exist
+        File reportsDir = new File("reports");
+        if (!reportsDir.exists()) {
+            reportsDir.mkdirs();
+            System.out.println("✅ Created reports directory");
+        }
+    }
+
+    @AfterSuite
+    public void afterSuite() {
+        System.out.println("\n" + "=".repeat(90));
+        System.out.println("🏁 TESTRAIL AUTOMATION SUITE COMPLETED");
+        System.out.println("=".repeat(90));
+        System.out.println("📊 Check Extent Report: test-output/ExtentReport.html");
+        System.out.println("📈 Cucumber HTML: reports/cucumber-html-report.html");
+        System.out.println("=".repeat(90) + "\n");
     }
 }

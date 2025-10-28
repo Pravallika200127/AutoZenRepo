@@ -2,75 +2,90 @@ package drivers;
 
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.edge.EdgeDriver;
-import org.openqa.selenium.safari.SafariDriver;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
+import org.openqa.selenium.edge.EdgeOptions;
+import io.github.bonigarcia.wdm.WebDriverManager;
+import config.ConfigReader;
 
 public class DriverFactory {
-    private static WebDriver driver;
-    private static Properties properties;
 
-    private static final String CONFIG_FILE_PATH = "/config.properties"; // if in src/main/resources or src/test/resources
-
-    private static void loadProperties() {
-        properties = new Properties();
-        String resourcePath = "/config.properties"; // root of classpath
-        System.out.println("Resource URL: " + DriverFactory.class.getResource(resourcePath));
-        try (InputStream input = DriverFactory.class.getResourceAsStream(resourcePath)) {
-            if (input == null) {
-                throw new RuntimeException("Unable to find resource: " + resourcePath);
-            }
-            properties.load(input);
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Failed to load configuration properties");
-        }
-    }
+    private static ThreadLocal<WebDriver> driver = new ThreadLocal<>();
+    private static String browserName;
 
     public static void initDriver() {
-        if (driver == null) {
-            loadProperties();
-            String browserName = properties.getProperty("browser", "chrome").toLowerCase();
-
-            switch (browserName) {
-                case "firefox":
-                    // Ensure geckodriver is in PATH
-                    driver = new FirefoxDriver();
-                    break;
-                case "edge":
-                    // Ensure msedgedriver is in PATH
-                    driver = new EdgeDriver();
-                    break;
-                case "safari":
-                    // SafariDriver comes pre-installed on macOS, ensure Safari's "Allow Remote Automation" is enabled in Safari's Develop menu
-                    driver = new SafariDriver();
-                    break;
-                case "chrome":
-                default:
-                    // Ensure chromedriver is in PATH
-                    driver = new ChromeDriver();
-                    break;
-            }
-            driver.manage().window().maximize();
+        if (driver.get() == null) {
+            driver.set(createDriver());
         }
     }
 
     public static WebDriver getDriver() {
-        if (driver == null) {
+        if (driver.get() == null) {
             initDriver();
         }
-        return driver;
+        return driver.get();
+    }
+
+    private static WebDriver createDriver() {
+        browserName = ConfigReader.get("browser", "chrome").toLowerCase();
+        WebDriver webDriver;
+
+        System.out.println("🌐 Initializing " + browserName + " browser...");
+
+        try {
+            switch (browserName) {
+                case "chrome":
+                    WebDriverManager.chromedriver().setup();
+                    ChromeOptions chromeOptions = new ChromeOptions();
+                    chromeOptions.addArguments("--start-maximized", "--disable-notifications", "--disable-popup-blocking");
+                    webDriver = new ChromeDriver(chromeOptions);
+                    break;
+
+                case "firefox":
+                    WebDriverManager.firefoxdriver().setup();
+                    FirefoxOptions firefoxOptions = new FirefoxOptions();
+                    firefoxOptions.addArguments("--width=1920", "--height=1080");
+                    firefoxOptions.setBinary("C:\\Program Files\\Mozilla Firefox\\firefox.exe");
+                    webDriver = new FirefoxDriver(firefoxOptions);
+                    break;
+
+                case "edge":
+                    WebDriverManager.edgedriver().setup();
+                    EdgeOptions edgeOptions = new EdgeOptions();
+                    edgeOptions.addArguments("--start-maximized");
+                    webDriver = new EdgeDriver(edgeOptions);
+                    break;
+
+                default:
+                    throw new IllegalArgumentException("❌ Browser not supported: " + browserName);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to initialize WebDriver for: " + browserName);
+            e.printStackTrace();
+            throw new RuntimeException("Failed to initialize WebDriver for: " + browserName, e);
+        }
+
+        System.out.println("✅ Browser initialized successfully: " + browserName);
+        return webDriver;
     }
 
     public static void quitDriver() {
-        if (driver != null) {
-            driver.quit();
-            driver = null;
+        if (driver.get() != null) {
+            try {
+                System.out.println("🔒 Quitting browser...");
+                driver.get().quit();
+                driver.remove();
+                System.out.println("✅ Browser closed successfully");
+            } catch (Exception e) {
+                System.err.println("⚠️ Error closing browser: " + e.getMessage());
+            }
         }
+    }
+
+    /** ✅ Added method */
+    public static String getBrowserName() {
+        return browserName != null ? browserName : "unknown";
     }
 }

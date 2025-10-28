@@ -1,86 +1,109 @@
 package com.stepsdefs;
 
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.chrome.ChromeDriver;
-import pages.locatorsPage;
+import drivers.DriverFactory;
+import utils.SeleniumActions;
 import io.cucumber.java.en.*;
-import io.cucumber.java.After;
 
 public class SignupSteps {
 
-    private WebDriver driver;
-    private locatorsPage locatorsPage; // fixed typo in variable name
-
-    @Given("User opens the Facebook signup page")
-    public void user_opens_the_facebook_signup_page() {
-        // Initialize WebDriver (example with ChromeDriver)
-        driver = new ChromeDriver();
-        locatorsPage = new locatorsPage(driver);
-        locatorsPage.openSignupPage();
-        throw new io.cucumber.java.PendingException();
+    private WebDriver driver = DriverFactory.getDriver();
+    private SeleniumActions actions;
+    
+    public SignupSteps() {
+        // Initialize generic actions wrapper
+        this.actions = new SeleniumActions(driver);
     }
-
-    @When("User enters first name {string}")
-    public void user_enters_first_name(String string) {
-        locatorsPage.enterFirstName(string);
-        throw new io.cucumber.java.PendingException();
+    
+    @Given("User opens the login page")
+    public void openLoginPage() {
+        // Generic navigation - automatically handles timeouts and errors
+        actions.navigateTo("https://idp.bits-pilani.ac.in/idp/Authn/UserPassword");
+        
+        // Verify page loaded by checking for email field
+        actions.waitForVisibility(By.id("login"));
+        
+        System.out.println("✅ Login page opened successfully");
     }
-
-    public void user_enters_last_name(String lastName) {
-        locatorsPage.enterLastName(lastName);
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("User enters mobile number or email {string}")
-    public void user_enters_mobile_or_email(String email) {
-        locatorsPage.enterEmail(email);
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("User re-enters mobile number or email {string}")
-    public void user_reenters_mobile_or_email(String email) {
-        locatorsPage.reEnterEmail(email);
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("User enters a new password {string}")
-    public void user_enters_a_new_password(String password) {
-        locatorsPage.enterPassword(password);
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("User selects birth date {string} {string} {string}")
-    public void user_selects_birth_date(String day, String month, String year) {
-        locatorsPage.selectBirthDate(day, month, year);
-        throw new io.cucumber.java.PendingException();
-    }
-
-    @And("User selects gender {string}")
-    public void user_selects_gender(String gender) {
-        if (gender.equalsIgnoreCase("Male")) {
-            locatorsPage.selectGenderMale();
-            throw new io.cucumber.java.PendingException();
+    
+    @When("User enters valid credentials")
+    public void enterCredentials() {
+        // Generic type actions - automatically handles NoSuchElement, StaleElement, etc.
+        actions.type(By.id("usernames"), "2021hx70001@wilp.bits-pilani.ac.in");
+        actions.type(By.xpath("//input[@id='password']"), "Pravallika@2001");
+        
+        // Generic click action - automatically handles all click failures
+        actions.click(By.id("submitbtn"));
+        
+        // Small wait for login processing
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
+        
+        System.out.println("✅ Credentials entered and login completed");
     }
-
-    @And("User clicks the Sign Up button")
-    public void user_clicks_the_sign_up_button() {
-        locatorsPage.clickSignUp();
-        throw new io.cucumber.java.PendingException();
+    
+    @Then("User should be logged in successfully")
+    public void verifyLogin() {
+        // Generic URL verification - automatically captures mismatches
+        actions.verifyUrlContains("dashboard"); // Adjust to your expected URL
+        
+        // Generic element verification - automatically handles element not found
+        if (actions.elementExists(By.id("logout"), 5)) {
+            System.out.println("✅ Logout button found - User is logged in");
+        } else {
+            // This will create "Expected Output Mismatch" defect
+            actions.verifyTextEquals(
+                By.id("logout"), 
+                "Logout" // Will fail if element doesn't exist
+            );
+        }
+        
+        System.out.println("✅ Login verification successful");
     }
-
-    @Then("User should see an account verification page")
-    public void user_should_see_an_account_verification_page() {
-        boolean isVerificationPage = locatorsPage.isVerificationPageDisplayed();
-        // Add assertions here, e.g.,
-        // Assert.assertTrue(isVerificationPage);
-        throw new io.cucumber.java.PendingException();
+    
+    // ==================== EXAMPLE: Additional Steps ====================
+    
+    @When("User clicks on {string}")
+    public void userClicksOn(String elementName) {
+        // Map element names to locators
+        By locator = getLocatorByName(elementName);
+        actions.click(locator);
     }
-
-    @After
-    public void tearDown() {
-        if (driver != null) {
-            driver.quit();
+    
+    @Then("User should see {string}")
+    public void userShouldSee(String expectedText) {
+        // You can use different strategies based on your needs
+        
+        // Option 1: Check if text appears anywhere on page
+        By textLocator = By.xpath("//*[contains(text(), '" + expectedText + "')]");
+        actions.waitForVisibility(textLocator);
+        
+        // Option 2: Verify specific element text
+        // actions.verifyTextContains(someLocator, expectedText);
+    }
+    
+    @Then("Page title should be {string}")
+    public void pageTitleShouldBe(String expectedTitle) {
+        // Generic title verification
+        actions.waitForTitleContains(expectedTitle);
+    }
+    
+    // Helper method to map element names to locators
+    private By getLocatorByName(String elementName) {
+        switch (elementName.toLowerCase()) {
+            case "login button":
+                return By.xpath("//button[@id='login']");
+            case "logout":
+                return By.id("logout");
+            case "dashboard":
+                return By.id("dashboard");
+            // Add more mappings as needed
+            default:
+                return By.xpath("//*[contains(text(), '" + elementName + "')]");
         }
     }
 }

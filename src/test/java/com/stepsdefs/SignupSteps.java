@@ -65,45 +65,6 @@ public class SignupSteps {
         System.out.println("✅ Login verification successful");
     }
     
-    // ==================== EXAMPLE: Additional Steps ====================
+  
     
-    @When("User clicks on {string}")
-    public void userClicksOn(String elementName) {
-        // Map element names to locators
-        By locator = getLocatorByName(elementName);
-        actions.click(locator);
-    }
-    
-    @Then("User should see {string}")
-    public void userShouldSee(String expectedText) {
-        // You can use different strategies based on your needs
-        
-        // Option 1: Check if text appears anywhere on page
-        By textLocator = By.xpath("//*[contains(text(), '" + expectedText + "')]");
-        actions.waitForVisibility(textLocator);
-        
-        // Option 2: Verify specific element text
-        // actions.verifyTextContains(someLocator, expectedText);
-    }
-    
-    @Then("Page title should be {string}")
-    public void pageTitleShouldBe(String expectedTitle) {
-        // Generic title verification
-        actions.waitForTitleContains(expectedTitle);
-    }
-    
-    // Helper method to map element names to locators
-    private By getLocatorByName(String elementName) {
-        switch (elementName.toLowerCase()) {
-            case "login button":
-                return By.xpath("//button[@id='login']");
-            case "logout":
-                return By.id("logout");
-            case "dashboard":
-                return By.id("dashboard");
-            // Add more mappings as needed
-            default:
-                return By.xpath("//*[contains(text(), '" + elementName + "')]");
-        }
-    }
 }

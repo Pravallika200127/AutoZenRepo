@@ -17,7 +17,11 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        
+
+        <!-- Default browser settings (safe fallback) -->
+        <browser>chrome</browser>
+        <headless>true</headless>
+
         <!-- Dependency Versions -->
         <selenium.version>4.24.0</selenium.version>
         <webdrivermanager.version>5.9.2</webdrivermanager.version>
@@ -25,7 +29,7 @@
         <testng.version>7.10.2</testng.version>
         <extentreports.version>5.1.1</extentreports.version>
         <extentreports-cucumber7.version>1.14.0</extentreports-cucumber7.version>
-        
+
         <!-- Plugin Versions -->
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
@@ -40,21 +44,19 @@
             <version>${selenium.version}</version>
         </dependency>
 
-        <!-- ✅ WebDriverManager (Automatic driver management) -->
+        <!-- ✅ WebDriverManager -->
         <dependency>
             <groupId>io.github.bonigarcia</groupId>
             <artifactId>webdrivermanager</artifactId>
             <version>${webdrivermanager.version}</version>
         </dependency>
 
-        <!-- ✅ Cucumber Java -->
+        <!-- ✅ Cucumber + TestNG -->
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>cucumber-java</artifactId>
             <version>${cucumber.version}</version>
         </dependency>
-
-        <!-- ✅ Cucumber TestNG Integration -->
         <dependency>
             <groupId>io.cucumber</groupId>
             <artifactId>cucumber-testng</artifactId>
@@ -68,35 +70,35 @@
             <version>${testng.version}</version>
         </dependency>
 
-        <!-- ✅ HTTP Client (for API calls) -->
+        <!-- ✅ HTTP Client -->
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
             <version>4.12.0</version>
         </dependency>
 
-        <!-- ✅ JSON Processing -->
+        <!-- ✅ JSON Handling -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20240303</version>
         </dependency>
 
-        <!-- ✅ Logging (SLF4J) -->
+        <!-- ✅ Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>2.0.13</version>
         </dependency>
 
-        <!-- ✅ ExtentReports (Reporting) -->
+        <!-- ✅ Extent Reports -->
         <dependency>
             <groupId>com.aventstack</groupId>
             <artifactId>extentreports</artifactId>
             <version>${extentreports.version}</version>
         </dependency>
 
-        <!-- ✅ ExtentReports Cucumber7 Adapter -->
+        <!-- ✅ Extent Cucumber 7 Adapter -->
         <dependency>
             <groupId>tech.grasshopper</groupId>
             <artifactId>extentreports-cucumber7-adapter</artifactId>
@@ -108,7 +110,7 @@
     <build>
         <plugins>
 
-            <!-- ✅ Maven Compiler Plugin -->
+            <!-- ✅ Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -120,32 +122,35 @@
                 </configuration>
             </plugin>
 
-            <!-- ✅ Maven Surefire Plugin (Test Execution) -->
+            <!-- ✅ Surefire Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>${maven-surefire-plugin.version}</version>
                 <configuration>
-                    <!-- Use TestNG suite XML -->
+                    <!-- Use TestNG suite -->
                     <suiteXmlFiles>
                         <suiteXmlFile>testng.xml</suiteXmlFile>
                     </suiteXmlFiles>
-                    
-                    <!-- System Properties -->
+
+                    <!-- System Properties for browsers -->
                     <systemPropertyVariables>
                         <browser>${browser}</browser>
                         <headless>${headless}</headless>
                     </systemPropertyVariables>
-                    
-                    <!-- Test Failure Handling -->
-                    <testFailureIgnore>false</testFailureIgnore>
-                    
-                    <!-- Parallel Execution (optional) -->
+
+                    <!-- Memory + stability settings -->
+                    <argLine>-Xmx2048m -XX:+UseG1GC -Djava.awt.headless=true</argLine>
+                    <useSystemClassLoader>false</useSystemClassLoader>
+                    <forkCount>1</forkCount>
+                    <reuseForks>false</reuseForks>
+
+                    <!-- Optional parallel run -->
                     <parallel>methods</parallel>
                     <threadCount>3</threadCount>
-                    
-                    <!-- Memory Settings -->
-                    <argLine>-Xmx1024m -XX:MaxPermSize=256m</argLine>
+
+                    <testFailureIgnore>false</testFailureIgnore>
+                    <trimStackTrace>false</trimStackTrace>
                 </configuration>
             </plugin>
 

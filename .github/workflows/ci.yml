@@ -18,16 +18,12 @@ jobs:
         include:
           - browser: chrome
             os: ubuntu-latest
-            browser-version: stable
           - browser: firefox
             os: ubuntu-latest
-            browser-version: latest
           - browser: edge
             os: ubuntu-latest
-            browser-version: stable
           - browser: safari
             os: macos-latest
-            browser-version: system
 
     steps:
       - name: Checkout Code
@@ -48,12 +44,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-
 
+      # ✅ Ensure required browsers exist
+      - name: Install Browsers (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          echo "🧩 Ensuring browsers are installed..."
+          sudo apt-get update -qq
+          sudo apt-get install -y firefox
+          sudo apt-get install -y google-chrome-stable || true
+
       # ---------- Chrome ----------
       - name: Setup Chrome
         if: matrix.browser == 'chrome'
         uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: ${{ matrix.browser-version }}
 
       - name: Setup ChromeDriver
         if: matrix.browser == 'chrome'
@@ -63,60 +66,39 @@ jobs:
       - name: Setup Firefox
         if: matrix.browser == 'firefox'
         uses: browser-actions/setup-firefox@v1
-        with:
-          firefox-version: ${{ matrix.browser-version }}
 
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-geckodriver@latest
+        uses: browser-actions/setup-geckodriver@v1
 
       # ---------- Edge ----------
-      - name: Setup Microsoft Edge & Driver (Resilient)
+      - name: Setup Microsoft Edge & EdgeDriver
         if: matrix.browser == 'edge'
         shell: bash
         run: |
           echo "🟦 Installing Microsoft Edge and EdgeDriver..."
-
           sudo apt-get update -qq
           sudo apt-get install -y curl unzip jq gpg apt-transport-https
-
-          # Add Microsoft Edge repo
+          
+          # Install Edge Browser
           curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
           echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list > /dev/null
-
           sudo apt-get update -qq
-          sudo apt-get install -y microsoft-edge-stable || true
-
+          sudo apt-get install -y microsoft-edge-stable
+          
           EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
-          MAJOR=$(echo "$EDGE_VERSION" | cut -d. -f1)
-          echo "Detected Edge version: $EDGE_VERSION"
-
-          DRIVER_VERSION=$(curl -fsSL "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR}" 2>/dev/null || echo "")
-          if [ -z "$DRIVER_VERSION" ]; then
-            echo "⚠️ Could not detect driver version for ${MAJOR}, using latest stable fallback"
-            DRIVER_VERSION=$(curl -fsSL "https://msedgedriver.azureedge.net/LATEST_RELEASE" 2>/dev/null || echo "")
-          fi
-
-          if [ -z "$DRIVER_VERSION" ]; then
-            echo "⚠️ Network issue: unable to reach AzureEdge CDN. Trying latest GitHub mirror..."
-            wget -q https://msedgedriver.azureedge.net/edgedriver_linux64.zip -O edgedriver.zip || true
-          else
-            echo "Downloading EdgeDriver version: $DRIVER_VERSION"
-            wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip || true
-          fi
-
-          if [ ! -f edgedriver.zip ]; then
-            echo "⚠️ Could not download EdgeDriver. Falling back to system installation (if available)."
-          else
-            unzip -q edgedriver.zip || echo "⚠️ Unzip failed, continuing anyway."
-            sudo mv msedgedriver /usr/local/bin/msedgedriver 2>/dev/null || true
-            chmod +x /usr/local/bin/msedgedriver || true
-            rm -f edgedriver.zip
-          fi
-
-          echo "✅ Edge setup completed"
-          microsoft-edge-stable --version || true
-          msedgedriver --version || echo "⚠️ EdgeDriver not found but continuing..."
+          echo "✅ Edge version: $EDGE_VERSION"
+          
+          # Install EdgeDriver
+          echo "📥 Downloading EdgeDriver..."
+          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_STABLE")
+          echo "EdgeDriver version: $DRIVER_VERSION"
+          wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip
+          unzip -q edgedriver.zip
+          sudo mv msedgedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/msedgedriver
+          msedgedriver --version
+          echo "✅ EdgeDriver installed successfully"
 
       # ---------- Safari ----------
       - name: Enable Safari Driver
@@ -125,10 +107,9 @@ jobs:
           echo "Enabling SafariDriver..."
           sudo safaridriver --enable
           safaridriver --version || true
-          sw_vers || true
 
       # ---------- Display Versions ----------
-      - name: Display Browser and Driver Versions
+      - name: Display Browser Versions
         run: |
           echo "---- Browser & Driver Versions ----"
           case "${{ matrix.browser }}" in
@@ -151,7 +132,8 @@ jobs:
 
       # ---------- Run Tests ----------
       - name: Run Tests with Maven (${{ matrix.browser }})
-        run: mvn clean test -Dmaven.test.failure.ignore=true -Dbrowser=${{ matrix.browser }} -Dheadless=true
+        run: mvn clean test -Dbrowser=${{ matrix.browser }} -Dheadless=true
+        continue-on-error: true
         env:
           TESTRAIL_ENABLED: "true"
           TESTRAIL_URL: ${{ secrets.TESTRAIL_URL }}
@@ -166,11 +148,23 @@ jobs:
       - name: Show Failing Tests Summary
         if: always()
         run: |
+          echo "======================================="
+          echo "🧪 TEST RESULTS for ${{ matrix.browser }}"
+          echo "======================================="
+          echo ""
+          echo "📄 Surefire Reports:"
           echo "---------------------------------------"
-          echo "🧪 FAILED TEST SUMMARY for ${{ matrix.browser }}"
+          find target/surefire-reports -name "*.txt" -exec echo "File: {}" \; -exec cat {} \; 2>/dev/null || echo "⚠️ No .txt reports found"
+          echo ""
           echo "---------------------------------------"
-          grep -i "FAILED" target/surefire-reports/*.txt || echo "✅ No failed tests detected"
+          echo "📊 XML Reports Summary:"
           echo "---------------------------------------"
+          find target/surefire-reports -name "*.xml" -exec grep -H "failures\|errors" {} \; 2>/dev/null || echo "⚠️ No .xml reports found"
+          echo ""
+          echo "---------------------------------------"
+          echo "📋 Test Counts:"
+          grep -h "Tests run:" target/surefire-reports/*.txt 2>/dev/null || echo "No test summary found"
+          echo "======================================="
 
       # ---------- Artifacts ----------
       - name: Upload Test Reports (${{ matrix.browser }})
@@ -186,23 +180,40 @@ jobs:
           retention-days: 30
 
       - name: Upload Screenshots (${{ matrix.browser }})
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-${{ matrix.browser }}-${{ matrix.os }}
           path: screenshots/
           retention-days: 7
+          if-no-files-found: ignore
 
-  # ---------- Summary ----------
+      # ---------- Fail job if tests failed ----------
+      - name: Check Test Results
+        if: always()
+        run: |
+          if grep -q "Failures: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
+            echo "❌ Tests failed for ${{ matrix.browser }}"
+            exit 1
+          elif grep -q "Errors: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
+            echo "❌ Tests had errors for ${{ matrix.browser }}"
+            exit 1
+          else
+            echo "✅ All tests passed for ${{ matrix.browser }}"
+          fi
+
   summary:
-    name: Test Summary & Slack Notification
+    name: Test Summary
     runs-on: ubuntu-latest
     needs: [test]
     if: always()
-
     steps:
-      - name: Display Summary
+      - name: Check Test Results
         run: |
-          echo "🎯 All cross-browser test runs completed!"
-          echo "Browsers covered: Chrome, Firefox, Edge, Safari"
-          echo "✅ Reports and screenshots uploaded."
+          echo "🎯 Cross-browser test runs completed!"
+          if [ "${{ needs.test.result }}" == "failure" ]; then
+            echo "❌ Some tests failed. Check the artifacts for details."
+            exit 1
+          else
+            echo "✅ All tests passed!"
+          fi

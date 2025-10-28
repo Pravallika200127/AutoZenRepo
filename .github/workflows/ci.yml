@@ -13,40 +13,43 @@ jobs:
     runs-on: ${{ matrix.os }}
     
     strategy:
-      fail-fast: false  # ✅ Continue testing other browsers even if one fails
+      fail-fast: false
       matrix:
-        browser: [chrome, firefox, edge]
-        os: [ubuntu-latest]
         include:
-          # Chrome on Ubuntu
+          # ✅ Chrome on Ubuntu
           - browser: chrome
             os: ubuntu-latest
             browser-version: stable
-          
-          # Firefox on Ubuntu
+
+          # ✅ Firefox on Ubuntu
           - browser: firefox
             os: ubuntu-latest
             browser-version: latest
-          
-          # Edge on Ubuntu
+
+          # ✅ Edge on Ubuntu
           - browser: edge
             os: ubuntu-latest
             browser-version: stable
-    
+
+          # ✅ Safari on macOS
+          - browser: safari
+            os: macos-latest
+            browser-version: system
+
     steps:
-      # ✅ Step 1: Checkout Code
+      # ✅ Checkout code
       - name: Checkout Code
         uses: actions/checkout@v4
-      
-      # ✅ Step 2: Set up JDK 17
+
+      # ✅ Setup Java
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
-      
-      # ✅ Step 3: Cache Maven Packages
+
+      # ✅ Cache Maven dependencies
       - name: Cache Maven Packages
         uses: actions/cache@v4
         with:
@@ -54,50 +57,54 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2-
-      
-      # ✅ Step 4: Setup Chrome
+
+      # ✅ Setup browsers
       - name: Setup Chrome
         if: matrix.browser == 'chrome'
         uses: browser-actions/setup-chrome@v1
         with:
           chrome-version: ${{ matrix.browser-version }}
-      
-      # ✅ Step 5: Setup Firefox
+
       - name: Setup Firefox
         if: matrix.browser == 'firefox'
         uses: browser-actions/setup-firefox@v1
         with:
           firefox-version: ${{ matrix.browser-version }}
-      
-      # ✅ Step 6: Setup Edge
+
       - name: Setup Edge
         if: matrix.browser == 'edge'
         uses: browser-actions/setup-edge@v1
         with:
           edge-version: ${{ matrix.browser-version }}
-      
-      # ✅ Step 7: Setup ChromeDriver
+
+      - name: Enable Safari Driver
+        if: matrix.browser == 'safari'
+        run: |
+          echo "Enabling Safari WebDriver..."
+          safaridriver --enable
+          safaridriver --version
+
+      # ✅ Setup drivers
       - name: Setup ChromeDriver
         if: matrix.browser == 'chrome'
         uses: nanasess/setup-chromedriver@v2
-      
-      # ✅ Step 8: Setup GeckoDriver (Firefox)
+
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-geckodriver@latest
-      
-      # ✅ Step 9: Setup EdgeDriver
+        uses: browser-actions/setup-geckodriver@v1
+
       - name: Setup EdgeDriver
         if: matrix.browser == 'edge'
         run: |
-          EDGE_VERSION=$(microsoft-edge --version | sed 's/.*Edge //' | cut -d'.' -f1)
-          wget https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0.0/edgedriver_linux64.zip
-          unzip edgedriver_linux64.zip
+          echo "Setting up EdgeDriver..."
+          EDGE_VERSION=$(microsoft-edge --version | awk '{print $3}' | cut -d'.' -f1)
+          wget "https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0/edgedriver_linux64.zip" -O edgedriver.zip || wget "https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0.0/edgedriver_linux64.zip" -O edgedriver.zip
+          unzip edgedriver.zip
           sudo mv msedgedriver /usr/local/bin/
           sudo chmod +x /usr/local/bin/msedgedriver
-      
-      # ✅ Step 10: Verify Browser Installation
-      - name: Display Browser and Driver versions
+
+      # ✅ Verify Browser and Driver Versions
+      - name: Display Browser and Driver Versions
         run: |
           if [ "${{ matrix.browser }}" == "chrome" ]; then
             google-chrome --version
@@ -108,9 +115,12 @@ jobs:
           elif [ "${{ matrix.browser }}" == "edge" ]; then
             microsoft-edge --version
             msedgedriver --version
+          elif [ "${{ matrix.browser }}" == "safari" ]; then
+            safaridriver --version
+            sw_vers
           fi
-      
-      # ✅ Step 11: Run Tests with Maven
+
+      # ✅ Run Tests
       - name: Run Tests with Maven (${{ matrix.browser }})
         run: mvn clean test -Dbrowser=${{ matrix.browser }} -Dheadless=true
         env:
@@ -122,8 +132,8 @@ jobs:
           TESTRAIL_RUN_ID: ${{ secrets.TESTRAIL_RUN_ID }}
           BASE_URL: ${{ secrets.BASE_URL }}
           BROWSER: ${{ matrix.browser }}
-      
-      # ✅ Step 12: Upload Test Reports (per browser)
+
+      # ✅ Upload Test Reports
       - name: Upload Test Reports (${{ matrix.browser }})
         if: always()
         uses: actions/upload-artifact@v4
@@ -134,8 +144,8 @@ jobs:
             target/cucumber-reports/
             target/surefire-reports/
           retention-days: 30
-      
-      # ✅ Step 13: Upload Screenshots on Failure
+
+      # ✅ Upload Screenshots on Failure
       - name: Upload Screenshots (${{ matrix.browser }})
         if: failure()
         uses: actions/upload-artifact@v4
@@ -144,17 +154,38 @@ jobs:
           path: screenshots/
           retention-days: 7
 
-  # ✅ Summary Job (runs after all browser tests)
-  test-summary:
-    name: Test Summary
-    needs: test
+  # ✅ Summary & Slack Notification Job
+  summary:
+    name: Test Summary & Slack Notification
     runs-on: ubuntu-latest
+    needs: [test]
     if: always()
-    
     steps:
-      - name: Check Test Results
+      - name: Display Summary
         run: |
-          echo "🎯 Cross-Browser Test Execution Complete!"
-          echo "✅ Chrome: ${{ needs.test.result }}"
-          echo "✅ Firefox: ${{ needs.test.result }}"
-          echo "✅ Edge: ${{ needs.test.result }}"
+          echo "🎯 All cross-browser test runs completed!"
+          echo "Browsers covered: Chrome, Firefox, Edge, Safari"
+          echo "✅ Reports and screenshots are available in workflow artifacts."
+
+      # ✅ Slack Notification
+      - name: Send Slack Notification
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STATUS: ${{ job.status }}
+        run: |
+          STATUS_EMOJI=":white_check_mark:"
+          if [ "${STATUS}" != "success" ]; then
+            STATUS_EMOJI=":x:"
+          fi
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"text\": \"${STATUS_EMOJI} *Cross-Browser Test Summary* \n
+              *Repository:* ${GITHUB_REPOSITORY}\n
+              *Branch:* ${GITHUB_REF_NAME}\n
+              *Status:* ${STATUS}\n
+              *Browsers:* Chrome, Firefox, Edge, Safari\n
+              *Run URL:* ${WORKFLOW_URL}\"
+            }" \
+            $SLACK_WEBHOOK_URL

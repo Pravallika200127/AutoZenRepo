@@ -54,7 +54,7 @@ jobs:
       # ✅ Setup browsers
       - name: Setup Chrome
         if: matrix.browser == 'chrome'
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-geckodriver@latest
         with:
           chrome-version: ${{ matrix.browser-version }}
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Setup Edge
         if: matrix.browser == 'edge'
-        uses: browser-actions/setup-edge@v1
+        uses: browser-actions/setup-geckodriver@latest
         with:
           edge-version: ${{ matrix.browser-version }}
 
@@ -84,7 +84,7 @@ jobs:
 
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-geckodriver@v1
+        uses: browser-actions/setup-geckodriver@latest
 
       - name: Setup EdgeDriver
         if: matrix.browser == 'edge'

@@ -69,7 +69,19 @@ jobs:
 
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-geckodriver@v1
+        run: |
+          echo "🦊 Installing GeckoDriver..."
+          # Get latest GeckoDriver version
+          GECKODRIVER_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
+          echo "GeckoDriver version: $GECKODRIVER_VERSION"
+          
+          # Download and install
+          wget -q "https://github.com/mozilla/geckodriver/releases/download/${GECKODRIVER_VERSION}/geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
+          tar -xzf "geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
+          sudo mv geckodriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/geckodriver
+          geckodriver --version
+          echo "✅ GeckoDriver installed successfully"
 
       # ---------- Edge ----------
       - name: Setup Microsoft Edge & EdgeDriver
@@ -104,31 +116,41 @@ jobs:
       - name: Enable Safari Driver
         if: matrix.browser == 'safari'
         run: |
-          echo "Enabling SafariDriver..."
+          echo "🧭 Enabling SafariDriver..."
           sudo safaridriver --enable
           safaridriver --version || true
 
       # ---------- Display Versions ----------
       - name: Display Browser Versions
         run: |
-          echo "---- Browser & Driver Versions ----"
+          echo "===================================="
+          echo "🌐 Browser & Driver Versions"
+          echo "===================================="
           case "${{ matrix.browser }}" in
             chrome)
+              echo "Chrome:"
               google-chrome --version || google-chrome-stable --version
+              echo "ChromeDriver:"
               chromedriver --version
               ;;
             firefox)
+              echo "Firefox:"
               firefox --version
+              echo "GeckoDriver:"
               geckodriver --version
               ;;
             edge)
+              echo "Edge:"
               microsoft-edge-stable --version
+              echo "EdgeDriver:"
               msedgedriver --version || echo "⚠️ EdgeDriver not available"
               ;;
             safari)
+              echo "Safari:"
               safaridriver --version
               ;;
           esac
+          echo "===================================="
 
       # ---------- Run Tests ----------
       - name: Run Tests with Maven (${{ matrix.browser }})

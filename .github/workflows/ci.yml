@@ -91,7 +91,7 @@ jobs:
 
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-geckodriver@v1
+        uses: marvinpinto/action-install-geckodriver@v2
 
       - name: Setup EdgeDriver
         if: matrix.browser == 'edge'
@@ -169,7 +169,7 @@ jobs:
 
       # ✅ Slack Notification
       - name: Send Slack Notification
-        if: always()
+        if: always() && env.SLACK_WEBHOOK_URL != ''
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -181,7 +181,7 @@ jobs:
           fi
           curl -X POST -H 'Content-type: application/json' \
             --data "{
-              \"text\": \"${STATUS_EMOJI} *Cross-Browser Test Summary* \n
+              \"text\": \"${STATUS_EMOJI} *CI AutoZen Pipeline with Cross-Browser Testing* \n
               *Repository:* ${GITHUB_REPOSITORY}\n
               *Branch:* ${GITHUB_REF_NAME}\n
               *Status:* ${STATUS}\n

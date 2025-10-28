@@ -1,26 +1,52 @@
-name: CI Pipeline
+name: CI AutoZen Pipeline with Cross-Browser Testing
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:  # ✅ Allow manual trigger
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  test:
+    name: Test on ${{ matrix.browser }}
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      fail-fast: false  # ✅ Continue testing other browsers even if one fails
+      matrix:
+        browser: [chrome, firefox, edge]
+        os: [ubuntu-latest]
+        include:
+          # Chrome on Ubuntu
+          - browser: chrome
+            os: ubuntu-latest
+            browser-version: stable
+          
+          # Firefox on Ubuntu
+          - browser: firefox
+            os: ubuntu-latest
+            browser-version: latest
+          
+          # Edge on Ubuntu
+          - browser: edge
+            os: ubuntu-latest
+            browser-version: stable
+    
     steps:
+      # ✅ Step 1: Checkout Code
       - name: Checkout Code
         uses: actions/checkout@v4
-
+      
+      # ✅ Step 2: Set up JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
-
+      
+      # ✅ Step 3: Cache Maven Packages
       - name: Cache Maven Packages
         uses: actions/cache@v4
         with:
@@ -28,11 +54,65 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2-
-
-      # ❌ Removed 'chmod +x mvnw' because mvnw doesn't exist
-      # ✅ Use system Maven instead
-      - name: Run Tests with Maven
-        run: mvn clean test -Dbrowser=chrome -Dheadless=true
+      
+      # ✅ Step 4: Setup Chrome
+      - name: Setup Chrome
+        if: matrix.browser == 'chrome'
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: ${{ matrix.browser-version }}
+      
+      # ✅ Step 5: Setup Firefox
+      - name: Setup Firefox
+        if: matrix.browser == 'firefox'
+        uses: browser-actions/setup-firefox@v1
+        with:
+          firefox-version: ${{ matrix.browser-version }}
+      
+      # ✅ Step 6: Setup Edge
+      - name: Setup Edge
+        if: matrix.browser == 'edge'
+        uses: browser-actions/setup-edge@v1
+        with:
+          edge-version: ${{ matrix.browser-version }}
+      
+      # ✅ Step 7: Setup ChromeDriver
+      - name: Setup ChromeDriver
+        if: matrix.browser == 'chrome'
+        uses: nanasess/setup-chromedriver@v2
+      
+      # ✅ Step 8: Setup GeckoDriver (Firefox)
+      - name: Setup GeckoDriver
+        if: matrix.browser == 'firefox'
+        uses: browser-actions/setup-geckodriver@latest
+      
+      # ✅ Step 9: Setup EdgeDriver
+      - name: Setup EdgeDriver
+        if: matrix.browser == 'edge'
+        run: |
+          EDGE_VERSION=$(microsoft-edge --version | sed 's/.*Edge //' | cut -d'.' -f1)
+          wget https://msedgedriver.azureedge.net/${EDGE_VERSION}.0.0.0/edgedriver_linux64.zip
+          unzip edgedriver_linux64.zip
+          sudo mv msedgedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/msedgedriver
+      
+      # ✅ Step 10: Verify Browser Installation
+      - name: Display Browser and Driver versions
+        run: |
+          if [ "${{ matrix.browser }}" == "chrome" ]; then
+            google-chrome --version
+            chromedriver --version
+          elif [ "${{ matrix.browser }}" == "firefox" ]; then
+            firefox --version
+            geckodriver --version
+          elif [ "${{ matrix.browser }}" == "edge" ]; then
+            microsoft-edge --version
+            msedgedriver --version
+          fi
+      
+      # ✅ Step 11: Run Tests with Maven
+      - name: Run Tests with Maven (${{ matrix.browser }})
+        run: mvn clean test -Dbrowser=${{ matrix.browser }} -Dheadless=true
         env:
           TESTRAIL_ENABLED: "true"
           TESTRAIL_URL: ${{ secrets.TESTRAIL_URL }}
@@ -41,14 +121,40 @@ jobs:
           TESTRAIL_PROJECT_ID: ${{ secrets.TESTRAIL_PROJECT_ID }}
           TESTRAIL_RUN_ID: ${{ secrets.TESTRAIL_RUN_ID }}
           BASE_URL: ${{ secrets.BASE_URL }}
-          BROWSER: chrome
-
-      - name: Upload Test Reports
+          BROWSER: ${{ matrix.browser }}
+      
+      # ✅ Step 12: Upload Test Reports (per browser)
+      - name: Upload Test Reports (${{ matrix.browser }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ExtentReports
+          name: test-reports-${{ matrix.browser }}-${{ matrix.os }}
           path: |
             reports/
             target/cucumber-reports/
             target/surefire-reports/
+          retention-days: 30
+      
+      # ✅ Step 13: Upload Screenshots on Failure
+      - name: Upload Screenshots (${{ matrix.browser }})
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ matrix.browser }}-${{ matrix.os }}
+          path: screenshots/
+          retention-days: 7
+
+  # ✅ Summary Job (runs after all browser tests)
+  test-summary:
+    name: Test Summary
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Check Test Results
+        run: |
+          echo "🎯 Cross-Browser Test Execution Complete!"
+          echo "✅ Chrome: ${{ needs.test.result }}"
+          echo "✅ Firefox: ${{ needs.test.result }}"
+          echo "✅ Edge: ${{ needs.test.result }}"

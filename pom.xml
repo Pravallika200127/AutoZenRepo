@@ -18,6 +18,10 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         
+        <!-- Default Browser & Headless Configuration -->
+        <browser>chrome</browser>
+        <headless>false</headless>
+        
         <!-- Dependency Versions -->
         <selenium.version>4.24.0</selenium.version>
         <webdrivermanager.version>5.9.2</webdrivermanager.version>
@@ -144,8 +148,8 @@
                     <parallel>methods</parallel>
                     <threadCount>3</threadCount>
                     
-                    <!-- Memory Settings -->
-                    <argLine>-Xmx1024m -XX:MaxPermSize=256m</argLine>
+                    <!-- Memory Settings (Java 17 Compatible) -->
+                    <argLine>-Xmx1024m -Xms512m</argLine>
                 </configuration>
             </plugin>
 

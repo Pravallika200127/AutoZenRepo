@@ -29,6 +29,8 @@ public class DriverFactory {
     
     private static WebDriver createDriver() {
         browserName = ConfigReader.get("browser", "chrome").toLowerCase();
+        browserName = ConfigReader.get("browser", "firefox").toLowerCase();
+        browserName = ConfigReader.get("browser", "edge").toLowerCase();
         
         // ✅ Check if headless mode is enabled (from system property or config)
         boolean isHeadless = Boolean.parseBoolean(System.getProperty("headless", 
@@ -68,7 +70,6 @@ public class DriverFactory {
                     WebDriverManager.firefoxdriver().setup();
                     FirefoxOptions firefoxOptions = new FirefoxOptions();
                     
-                    // ✅ Add headless mode for Firefox
                     if (isHeadless) {
                         firefoxOptions.addArguments("--headless");
                         firefoxOptions.addArguments("--width=1920");
@@ -76,32 +77,44 @@ public class DriverFactory {
                     } else {
                         firefoxOptions.addArguments("--width=1920");
                         firefoxOptions.addArguments("--height=1080");
-                        // ⚠️ Only set binary path if not in CI environment
-                        String firefoxPath = "C:\\Program Files\\Mozilla Firefox\\firefox.exe";
-                        if (new java.io.File(firefoxPath).exists()) {
-                            firefoxOptions.setBinary(firefoxPath);
+                        String firefoxBinaryPath = "C:\\Program Files\\Mozilla Firefox\\firefox.exe"; // Update this if Firefox is installed elsewhere
+                        if (new java.io.File(firefoxBinaryPath).exists()) {
+                            firefoxOptions.setBinary(firefoxBinaryPath);
+                        } else {
+                            throw new RuntimeException("Firefox binary not found at " + firefoxBinaryPath);
                         }
                     }
                     
                     webDriver = new FirefoxDriver(firefoxOptions);
                     break;
+
+
+                       
                     
                 case "edge":
                     WebDriverManager.edgedriver().setup();
                     EdgeOptions edgeOptions = new EdgeOptions();
-                    
-                    // ✅ Add headless mode for Edge
+
                     if (isHeadless) {
                         edgeOptions.addArguments("--headless=new");
                         edgeOptions.addArguments("--no-sandbox");
                         edgeOptions.addArguments("--disable-dev-shm-usage");
+                        edgeOptions.addArguments("--disable-gpu");
                         edgeOptions.addArguments("--window-size=1920,1080");
+                        edgeOptions.addArguments("--disable-extensions");
+                        edgeOptions.addArguments("--disable-software-rasterizer");
                     } else {
                         edgeOptions.addArguments("--start-maximized");
                     }
-                    
+
+                    // Add common options if needed
+                    edgeOptions.addArguments("--disable-notifications");
+                    edgeOptions.addArguments("--disable-popup-blocking");
+
                     webDriver = new EdgeDriver(edgeOptions);
                     break;
+
+
                     
                 default:
                     throw new IllegalArgumentException("❌ Browser not supported: " + browserName);

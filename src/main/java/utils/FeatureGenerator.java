@@ -41,7 +41,6 @@ public class FeatureGenerator {
         String stepsContent = extractBDDSteps(testCase);
 
         if (stepsContent != null && !stepsContent.isEmpty()) {
-            System.out.println("✅ Successfully extracted BDD/Gherkin steps");
         } else {
             System.out.println("⚠️ No BDD steps found, will generate default scenario");
         }
@@ -56,8 +55,6 @@ public class FeatureGenerator {
         try (FileWriter writer = new FileWriter(filePath)) {
             writer.write(featureContent);
         }
-
-        System.out.println("✅ Feature file created: " + new File(filePath).getAbsolutePath());
         return filePath;
     }
 
@@ -74,10 +71,7 @@ public class FeatureGenerator {
                 JSONArray bddArray = (bddObj instanceof String)
                         ? new JSONArray((String) bddObj)
                         : (JSONArray) bddObj;
-
-                System.out.println("🔍 Found 'custom_testrail_bdd_scenario' with " + bddArray.length() + " items");
-
-                for (int i = 0; i < bddArray.length(); i++) {
+              for (int i = 0; i < bddArray.length(); i++) {
                     JSONObject bddItem = bddArray.getJSONObject(i);
                     String content = bddItem.optString("content", "");
                     if (!content.isEmpty()) {

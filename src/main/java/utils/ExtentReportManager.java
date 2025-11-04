@@ -114,7 +114,7 @@ public class ExtentReportManager {
     public static void logFail(String msg) { if (getTest() != null) getTest().fail(msg); }
     public static void logWarning(String msg) { if (getTest() != null) getTest().warning(msg); }
 
-    /** ✅ Save screenshot to test-output/screenshots and embed in HTML */
+    /** ✅ FIXED: Save screenshot and embed with Base64 fallback */
     public static void captureAndAttachScreenshot(WebDriver driver, String title) {
         if (getTest() != null && driver != null) {
             try {
@@ -124,26 +124,19 @@ public class ExtentReportManager {
                 String filename = title.replaceAll("[^a-zA-Z0-9]", "_") + "_" + timestamp + ".png";
                 String filepath = SCREENSHOT_DIR + filename;
 
+                // Save screenshot to disk
                 Files.write(Paths.get(filepath), screenshotBytes);
-                String relativePath = "screenshots/" + filename;
-
-                getTest().info(title,
-                        MediaEntityBuilder.createScreenCaptureFromPath(relativePath).build());
                 System.out.println("📸 Screenshot saved: " + filepath);
+
+                // ✅ PRIMARY FIX: Use Base64 encoding for embedded screenshots
+                // This ensures screenshots always work regardless of file paths
+                String base64 = Base64.getEncoder().encodeToString(screenshotBytes);
+                getTest().info(title,
+                        MediaEntityBuilder.createScreenCaptureFromBase64String(base64).build());
+
             } catch (Exception e) {
                 System.err.println("⚠️ Failed to attach screenshot: " + e.getMessage());
-            }
-        }
-    }
-
-    /** ✅ Direct Base64 embedding (used in some steps) */
-    public static void attachScreenshotBase64(byte[] screenshotBytes, String title) {
-        if (getTest() != null && screenshotBytes != null) {
-            try {
-                String base64 = Base64.getEncoder().encodeToString(screenshotBytes);
-                getTest().info(title, MediaEntityBuilder.createScreenCaptureFromBase64String(base64).build());
-            } catch (Exception e) {
-                System.err.println("⚠️ Failed to embed Base64 screenshot: " + e.getMessage());
+                e.printStackTrace();
             }
         }
     }
@@ -151,6 +144,14 @@ public class ExtentReportManager {
     public static void attachFailureScreenshot(WebDriver driver, String msg) {
         logFail(msg);
         captureAndAttachScreenshot(driver, "Failure Screenshot");
+    }
+    
+    public static void attachBase64Screenshot(String base64, String title) {
+        try {
+            getTest().addScreenCaptureFromBase64String(base64, title);
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to attach Base64 screenshot: " + e.getMessage());
+        }
     }
 
     public static void flushReports() {

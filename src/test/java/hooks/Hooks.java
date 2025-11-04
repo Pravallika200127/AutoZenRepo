@@ -1,6 +1,8 @@
 package hooks;
 
 import io.cucumber.java.*;
+import io.cucumber.plugin.ConcurrentEventListener;
+import io.cucumber.plugin.event.*;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
@@ -13,7 +15,10 @@ import java.io.FileOutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 
-public class Hooks {
+/**
+ * ✅ Merged Hooks with Cucumber Event Listener for capturing Gherkin step text
+ */
+public class Hooks implements ConcurrentEventListener {
 
     private static WebDriver driver;
     private static Client testRailClient;
@@ -22,6 +27,40 @@ public class Hooks {
     private static boolean captureAllSteps = true;
     private static ThreadLocal<String> failureMessage = new ThreadLocal<>();
     private static ThreadLocal<Throwable> failureCause = new ThreadLocal<>();
+    private static ThreadLocal<String> currentStepText = new ThreadLocal<>(); // ✅ For Gherkin step text
+
+    // ========== Cucumber Event Listener Methods ==========
+    
+    @Override
+    public void setEventPublisher(EventPublisher publisher) {
+        // ✅ Listen to test step started events to capture Gherkin step text
+        publisher.registerHandlerFor(TestStepStarted.class, this::handleTestStepStarted);
+    }
+
+    /**
+     * ✅ Captures the Gherkin step text when a step starts
+     */
+    private void handleTestStepStarted(TestStepStarted event) {
+        TestStep testStep = event.getTestStep();
+        
+        // Check if this is a PickleStepTestStep (actual Gherkin step, not a hook)
+        if (testStep instanceof PickleStepTestStep) {
+            PickleStepTestStep pickleStep = (PickleStepTestStep) testStep;
+            
+            // Get the step text (e.g., "I navigate to login page")
+            String stepText = pickleStep.getStep().getText();
+            String keyword = pickleStep.getStep().getKeyword().trim(); // Given, When, Then, And, But
+            
+            // Combine keyword and text for full step
+            String fullStepText = keyword + " " + stepText;
+            
+            // Store for later use in screenshots
+            currentStepText.set(fullStepText);
+            System.out.println("📝 Current Step: " + fullStepText);
+        }
+    }
+
+    // ========== Cucumber Hooks ==========
 
     @BeforeAll
     public static void setupTestRail() {
@@ -52,7 +91,10 @@ public class Hooks {
     @Before
     public void setUp(Scenario scenario) {
         System.out.println("\n🚀 Starting Scenario: " + scenario.getName());
-        failureMessage.remove(); failureCause.remove();
+        failureMessage.remove(); 
+        failureCause.remove();
+        currentStepText.remove();
+        
         try {
             ExtentReportManager.createTest(scenario.getName());
             ExtentReportManager.logInfo("📋 Scenario: " + scenario.getName());
@@ -74,10 +116,22 @@ public class Hooks {
     public void captureStepScreenshot(Scenario scenario) {
         try {
             if (driver != null) {
+                // ✅ Get the actual Gherkin step text
+                String stepText = currentStepText.get();
+                if (stepText == null || stepText.isEmpty()) {
+                    stepText = "Step in scenario: " + scenario.getName();
+                }
+                
                 boolean shouldCapture = captureAllSteps || scenario.isFailed();
-                String title = scenario.isFailed() ? "❌ Failed Step Screenshot" : "✅ Step Screenshot";
-
-                if (shouldCapture) {
+                
+                if (scenario.isFailed()) {
+                    // ✅ Use Gherkin step text for failed steps
+                    String title = "❌ Failed Step: " + stepText;
+                    ExtentReportManager.captureAndAttachScreenshot(driver, title);
+                    System.out.println("📸 Screenshot captured: " + title);
+                } else if (shouldCapture) {
+                    // ✅ Use Gherkin step text for passed steps
+                    String title = "✅ Step: " + stepText;
                     ExtentReportManager.captureAndAttachScreenshot(driver, title);
                     System.out.println("📸 Screenshot captured: " + title);
                 }
@@ -130,6 +184,7 @@ public class Hooks {
         try {
             if (driver != null) driver.quit();
         } catch (Exception ignored) {}
+        currentStepText.remove();
         ExtentReportManager.removeTest();
     }
 
@@ -470,6 +525,7 @@ public class Hooks {
     }
    
     public static WebDriver getDriver() { return driver; }
+    
     public static void setFailureInfo(String msg, Throwable cause) {
         failureMessage.set(msg);
         failureCause.set(cause);

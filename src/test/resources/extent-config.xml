@@ -1,96 +1,50 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <extentreports>
     <configuration>
-        <!-- Report Theme: STANDARD or DARK -->
         <theme>LIGHT</theme>
-        
-        <!-- Document Encoding -->
         <encoding>UTF-8</encoding>
-        
-        <!-- Protocol for Script and Stylesheets: HTTP or HTTPS -->
         <protocol>HTTPS</protocol>
-        
-        <!-- Report Title -->
+
         <documentTitle>Test Execution Summary</documentTitle>
-        
-        <!-- Report Name -->
         <reportName>Automation Execution Report</reportName>
-        
-        <!-- Timestamp Format -->
         <timeStampFormat>MMM dd, yyyy HH:mm:ss</timeStampFormat>
-        
-        <!-- CSS to fix screenshot display -->
-        <css>
-            <![CDATA[
-                /* Fix for screenshot display */
-                .test-body img {
-                    max-width: 100% !important;
-                    height: auto !important;
-                    display: block;
-                    margin: 10px 0;
-                    border: 2px solid #424242;
-                    border-radius: 4px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                }
-                
-                /* Step styling */
-                .test-name {
-                    font-weight: bold;
-                    font-size: 1.1em;
-                }
-                
-                .step-details {
-                    margin: 10px 0;
-                    padding: 10px;
-                    background-color: rgba(255,255,255,0.05);
-                    border-left: 4px solid #4CAF50;
-                }
-                
-                /* Status colors */
-                .pass {
-                    color: #4CAF50 !important;
-                }
-                
-                .fail {
-                    color: #F44336 !important;
-                }
-                
-                .skip {
-                    color: #FF9800 !important;
-                }
-                
-                /* Screenshot title */
-                .img-caption {
-                    font-size: 0.9em;
-                    color: #9E9E9E;
-                    margin-bottom: 5px;
-                    font-weight: 500;
-                }
-            ]]>
-        </css>
-        
-        <!-- JavaScript customization -->
-        <js>
-            <![CDATA[
-                $(document).ready(function() {
-                    // Ensure all images are visible
-                    $('img').each(function() {
-                        $(this).css({
-                            'max-width': '100%',
-                            'height': 'auto',
-                            'display': 'block'
-                        });
-                    });
-                    
-                    // Add click to enlarge functionality
-                    $('img').click(function() {
-                        var src = $(this).attr('src');
-                        var img = '<img src="' + src + '" style="max-width:90%; max-height:90%;" />';
-                        var modal = '<div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;" onclick="$(this).remove();">' + img + '</div>';
-                        $('body').append(modal);
-                    });
+
+        <!-- ✅ CSS Fix: Make screenshots always visible and properly scaled -->
+        <css><![CDATA[
+            .test-body img {
+                max-width: 100% !important;
+                height: auto !important;
+                display: block;
+                margin: 10px 0;
+                border: 2px solid #424242;
+                border-radius: 4px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            }
+            .img-caption {
+                font-size: 0.9em;
+                color: #9E9E9E;
+                margin-bottom: 5px;
+                font-weight: 500;
+            }
+            .pass { color: #4CAF50 !important; }
+            .fail { color: #F44336 !important; }
+            .skip { color: #FF9800 !important; }
+        ]]></css>
+
+        <!-- ✅ JS Fix: Click to enlarge + ensure visibility -->
+        <js><![CDATA[
+            $(document).ready(function() {
+                $('img').css({
+                    'max-width': '100%',
+                    'height': 'auto',
+                    'display': 'block'
                 });
-            ]]>
-        </js>
+                $('img').click(function() {
+                    var src = $(this).attr('src');
+                    var modal = '<div style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; display:flex; align-items:center; justify-content:center;" onclick="$(this).remove();"><img src="' + src + '" style="max-width:90%; max-height:90%;"/></div>';
+                    $('body').append(modal);
+                });
+            });
+        ]]></js>
     </configuration>
 </extentreports>

@@ -1,21 +1,31 @@
 package config;
 
+import org.json.JSONObject;
+import org.json.JSONArray;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Properties;
 
 /**
  * Configuration reader utility for loading properties from config.properties file
+ * and test data from JSON files
  */
 public class ConfigReader {
     
     private static Properties properties;
+    private static JSONObject testData;
     private static final String CONFIG_FILE_PATH = "src/test/resources/config.properties";
+    private static final String TEST_DATA_PATH = "src/test/resources/testdata/testdata.json";
     
     static {
         loadProperties();
+        loadTestData();
     }
+    
+    // ==================== PROPERTIES FILE METHODS ====================
     
     /**
      * Load properties from config file
@@ -134,17 +144,158 @@ public class ConfigReader {
         return properties.containsKey(key);
     }
     
+    // ==================== JSON TEST DATA METHODS ====================
+    
     /**
-     * Reload properties from file
+     * Load test data from JSON file
+     */
+    private static void loadTestData() {
+        try {
+            String content = new String(Files.readAllBytes(Paths.get(TEST_DATA_PATH)));
+            testData = new JSONObject(content);
+            System.out.println("✅ Test data loaded successfully from: " + TEST_DATA_PATH);
+        } catch (IOException e) {
+            System.err.println("⚠️  Failed to load test data from: " + TEST_DATA_PATH);
+            System.err.println("⚠️  Test data methods will not be available. Error: " + e.getMessage());
+            testData = new JSONObject(); // Initialize empty JSON to avoid null pointer
+        }
+    }
+    
+    /**
+     * Get JSON object by path (e.g., "loginCredentials")
+     */
+    public static JSONObject getJsonObject(String path) {
+        if (testData == null || testData.isEmpty()) {
+            throw new RuntimeException("Test data not loaded. Check JSON file path.");
+        }
+        return testData.getJSONObject(path);
+    }
+    
+    /**
+     * Get JSON array by path
+     */
+    public static JSONArray getJsonArray(String path) {
+        if (testData == null || testData.isEmpty()) {
+            throw new RuntimeException("Test data not loaded. Check JSON file path.");
+        }
+        return testData.getJSONArray(path);
+    }
+    
+    /**
+     * Get string value from JSON by nested path (e.g., "loginCredentials.username")
+     */
+    public static String getJsonString(String path) {
+        if (testData == null || testData.isEmpty()) {
+            throw new RuntimeException("Test data not loaded. Check JSON file path.");
+        }
+        
+        String[] keys = path.split("\\.");
+        Object current = testData;
+        
+        for (String key : keys) {
+            if (current instanceof JSONObject) {
+                current = ((JSONObject) current).get(key);
+            } else {
+                throw new RuntimeException("Invalid JSON path: " + path);
+            }
+        }
+        
+        return current.toString();
+    }
+    
+    // ==================== CONVENIENCE METHODS FOR TEST DATA ====================
+    
+    /**
+     * Get login username from JSON
+     */
+    public static String getUsername() {
+        return getJsonString("loginCredentials.username");
+    }
+    
+    /**
+     * Get login password from JSON
+     */
+    public static String getPassword() {
+        return getJsonString("loginCredentials.password");
+    }
+    
+    /**
+     * Get URL from JSON by key
+     */
+    public static String getTestUrl(String urlKey) {
+        return getJsonString("urls." + urlKey);
+    }
+    
+    /**
+     * Get dashboard tile data from JSON
+     */
+    public static JSONObject getDashboardTile(String tileName) {
+        return getJsonObject("dashboardTiles").getJSONObject(tileName);
+    }
+    
+    /**
+     * Get course section data from JSON
+     */
+    public static JSONObject getCourseData(String key) {
+        return getJsonObject("coursesSection").getJSONObject(key);
+    }
+    
+    /**
+     * Get virtual labs data from JSON
+     */
+    public static JSONObject getVirtualLabsData() {
+        return getJsonObject("virtualLabs");
+    }
+    
+    /**
+     * Get viva/project data from JSON
+     */
+    public static JSONObject getVivaProjectData() {
+        return getJsonObject("vivaProject");
+    }
+    
+    /**
+     * Get expected text from JSON
+     */
+    public static String getExpectedText(String key) {
+        return getJsonString("expectedTexts." + key);
+    }
+    
+    /**
+     * Get validation message from JSON
+     */
+    public static String getValidationMessage(String key) {
+        return getJsonString("validationMessages." + key);
+    }
+    
+    // ==================== UTILITY METHODS ====================
+    
+    /**
+     * Reload both properties and test data
      */
     public static void reload() {
         loadProperties();
+        loadTestData();
+    }
+    
+    /**
+     * Reload only properties file
+     */
+    public static void reloadProperties() {
+        loadProperties();
+    }
+    
+    /**
+     * Reload only test data JSON
+     */
+    public static void reloadTestData() {
+        loadTestData();
     }
     
     /**
      * Print all loaded properties (for debugging)
      */
-    public static void printAll() {
+    public static void printAllProperties() {
         System.out.println("\n📋 All Configuration Properties:");
         System.out.println("=".repeat(60));
         properties.forEach((key, value) -> {
@@ -157,5 +308,27 @@ public class ConfigReader {
             System.out.println(key + " = " + displayValue);
         });
         System.out.println("=".repeat(60) + "\n");
+    }
+    
+    /**
+     * Print all test data from JSON (for debugging)
+     */
+    public static void printAllTestData() {
+        System.out.println("\n📋 All Test Data:");
+        System.out.println("=".repeat(60));
+        if (testData != null && !testData.isEmpty()) {
+            System.out.println(testData.toString(2)); // Pretty print with indentation
+        } else {
+            System.out.println("No test data loaded");
+        }
+        System.out.println("=".repeat(60) + "\n");
+    }
+    
+    /**
+     * Print all configuration (both properties and test data)
+     */
+    public static void printAll() {
+        printAllProperties();
+        printAllTestData();
     }
 }

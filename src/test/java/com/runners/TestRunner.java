@@ -7,52 +7,45 @@ import org.testng.annotations.AfterSuite;
 import config.ConfigReader;
 import utils.Client;
 import utils.FeatureGenerator;
-
 import java.io.File;
 
 @CucumberOptions(
-	    features = "src/test/resources/features",
-	    glue = {"com.stepsdefs", "hooks"},
-	    plugin = {
-	    		 "pretty",
-	    	        "html:reports/cucumber-html-report.html",
-	    	        "json:reports/cucumber.json",
-	    	        "com.aventstack.extentreports.cucumber.adapter.ExtentCucumberAdapter:"
-	    },
-	    monochrome = true
-	)
-	public class TestRunner extends AbstractTestNGCucumberTests {
-	
+    features = "src/test/resources/features",
+    glue = {"com.stepsdefs", "hooks"},
+    plugin = {
+        "pretty",
+        "html:reports/cucumber-html-report.html",
+        "json:reports/cucumber.json",
+        "com.aventstack.extentreports.cucumber.adapter.ExtentCucumberAdapter:",
+        "hooks.Hooks"  // ✅ Register Hooks as event listener to capture Gherkin steps
+    },
+    monochrome = true
+)
+public class TestRunner extends AbstractTestNGCucumberTests {
+
     static {
         // Generate feature files BEFORE Cucumber initialization
-        System.out.println("🔄 Initializing TestRail integration framework...");
         generateFeaturesBeforeCucumber();
     }
 
     private static void generateFeaturesBeforeCucumber() {
         try {
             System.out.println("✅ Configuration loaded successfully from: src/test/resources/config.properties\n");
-
             String testCaseIdStr = ConfigReader.get("testrail.caseId");
             if (testCaseIdStr == null || testCaseIdStr.isEmpty()) {
                 throw new RuntimeException("❌ testrail.caseId not configured in config.properties");
             }
-
             // Handle both "C40" and "40" formats
             if (testCaseIdStr.startsWith("C")) {
                 testCaseIdStr = testCaseIdStr.substring(1);
             }
-
             int testCaseId = Integer.parseInt(testCaseIdStr);
-
             // Initialize TestRail client and feature generator
             Client testRailClient = new Client();
             FeatureGenerator generator = new FeatureGenerator(testRailClient);
-
             System.out.println("📝 Generating feature file for TestRail case C" + testCaseId + "...");
             String featureFilePath = generator.generateFeatureFile(testCaseId);
             System.out.println("✅ Feature file generated successfully: " + featureFilePath + "\n");
-
         } catch (Exception e) {
             System.err.println("❌ Error generating features from TestRail: " + e.getMessage());
             e.printStackTrace();
@@ -62,16 +55,6 @@ import java.io.File;
 
     @BeforeSuite
     public void beforeSuite() {
-        System.out.println("\n" + "=".repeat(90));
-        System.out.println("🚀 STARTING TESTRAIL AUTOMATION SUITE");
-        System.out.println("=".repeat(90));
-        System.out.println("🔗 TestRail URL: " + ConfigReader.get("testrail.url"));
-        System.out.println("📁 Project ID: " + ConfigReader.get("testrail.projectId"));
-        System.out.println("📂 Suite ID: " + ConfigReader.get("testrail.suiteId"));
-        System.out.println("🧩 Case ID: " + ConfigReader.get("testrail.caseId"));
-        System.out.println("🌐 Browser: " + ConfigReader.get("browser"));
-        System.out.println("=".repeat(90) + "\n");
-
         // Create reports directory if it doesn't exist
         File reportsDir = new File("reports");
         if (!reportsDir.exists()) {

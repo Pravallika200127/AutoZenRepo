@@ -3,6 +3,9 @@ package utils;
 import org.openqa.selenium.*;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+
+import drivers.DriverFactory;
+
 import java.time.Duration;
 import java.util.List;
 
@@ -305,6 +308,18 @@ public class SeleniumActions {
         }
     }
     
+	public static void highLightAndUnHighlightElement() {
+		WebDriver driver = DriverFactory.getDriver();
+		JavascriptExecutor js = (JavascriptExecutor) driver;
+		js.executeScript("arguments[0].setAttribute('style', 'background: yellow; border: 2px solid red;');");
+		SeleniumActions.implicitWait(2);
+		js.executeScript("arguments[0].removeAttribute('style','')");
+	}
+	
+	 public static void implicitWait(long time) {
+		 DriverFactory.getDriver().manage().timeouts().implicitlyWait(Duration.ofSeconds(time));
+	    }
+
     /**
      * Wait for element to be clickable
      */

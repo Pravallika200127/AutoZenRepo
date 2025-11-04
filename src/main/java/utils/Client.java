@@ -45,12 +45,6 @@ public class Client {
 
         this.httpClient = new OkHttpClient();
 
-        System.out.println("\n🔧 TestRail Client Initialized");
-        System.out.println("   Base URL: " + this.apiBaseUrl);
-        System.out.println("   Username: " + this.username);
-        System.out.println("   Project ID: " + this.projectId);
-        System.out.println("   Suite ID: " + this.suiteId);
-        System.out.println("   Case ID: " + this.caseId);
     }
 
     // ==========================

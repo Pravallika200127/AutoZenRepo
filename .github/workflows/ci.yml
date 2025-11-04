@@ -44,130 +44,140 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-
 
-      # ✅ Ensure required browsers exist
-      - name: Install Browsers (Linux)
-        if: runner.os == 'Linux'
-        run: |
-          echo "🧩 Ensuring browsers are installed..."
-          sudo apt-get update -qq
-          sudo apt-get install -y firefox
-          sudo apt-get install -y google-chrome-stable || true
-
-      # ---------- Chrome ----------
-      - name: Setup Chrome
+      # ==================== CHROME SETUP ====================
+      - name: Setup Chrome Browser
         if: matrix.browser == 'chrome'
         uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
 
       - name: Setup ChromeDriver
         if: matrix.browser == 'chrome'
         uses: nanasess/setup-chromedriver@v2
+        with:
+          chromedriver-version: latest
 
-      # ---------- Firefox ----------
-      - name: Setup Firefox
+      - name: Verify Chrome Installation
+        if: matrix.browser == 'chrome'
+        run: |
+          echo "🌐 Chrome Version:"
+          google-chrome --version || google-chrome-stable --version
+          echo "🚗 ChromeDriver Version:"
+          chromedriver --version
+          echo "📍 ChromeDriver Location:"
+          which chromedriver
+
+      # ==================== FIREFOX SETUP ====================
+      - name: Setup Firefox Browser
         if: matrix.browser == 'firefox'
         uses: browser-actions/setup-firefox@v1
+        with:
+          firefox-version: latest
 
       - name: Setup GeckoDriver
         if: matrix.browser == 'firefox'
         run: |
           echo "🦊 Installing GeckoDriver..."
-          # Get latest GeckoDriver version
           GECKODRIVER_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-          echo "GeckoDriver version: $GECKODRIVER_VERSION"
+          echo "📦 GeckoDriver version: $GECKODRIVER_VERSION"
           
-          # Download and install
           wget -q "https://github.com/mozilla/geckodriver/releases/download/${GECKODRIVER_VERSION}/geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
           tar -xzf "geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
           sudo mv geckodriver /usr/local/bin/
           sudo chmod +x /usr/local/bin/geckodriver
-          geckodriver --version
+          rm -f "geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
+          
           echo "✅ GeckoDriver installed successfully"
 
-      # ---------- Edge ----------
-      - name: Setup Microsoft Edge & EdgeDriver
-        if: matrix.browser == 'edge'
-        shell: bash
+      - name: Verify Firefox Installation
+        if: matrix.browser == 'firefox'
         run: |
-          echo "🟦 Installing Microsoft Edge and EdgeDriver..."
+          echo "🦊 Firefox Version:"
+          firefox --version
+          echo "🚗 GeckoDriver Version:"
+          geckodriver --version
+          echo "📍 GeckoDriver Location:"
+          which geckodriver
+
+      # ==================== EDGE SETUP ====================
+      - name: Setup Microsoft Edge Browser
+        if: matrix.browser == 'edge'
+        run: |
+          echo "🟦 Installing Microsoft Edge..."
           sudo apt-get update -qq
-          sudo apt-get install -y curl unzip jq gpg apt-transport-https wget
+          sudo apt-get install -y curl gpg apt-transport-https
           
-          # Install Edge Browser
+          # Add Microsoft GPG key
           curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list > /dev/null
+          
+          # Add Edge repository
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list
+          
+          # Install Edge
           sudo apt-get update -qq
           sudo apt-get install -y microsoft-edge-stable
           
           EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
-          echo "✅ Edge version: $EDGE_VERSION"
-          
-          # Install EdgeDriver with retry logic
-          echo "📥 Downloading EdgeDriver..."
-          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_STABLE" || echo "131.0.2903.51")
-          echo "EdgeDriver version: $DRIVER_VERSION"
-          
-          # Try different download URLs
-          if wget -q "https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip 2>/dev/null; then
-            echo "✅ Downloaded from azureedge.net"
-          elif wget -q "https://msedgewebdriverstorage.blob.core.windows.net/edgewebdriver/${DRIVER_VERSION}/edgedriver_linux64.zip" -O edgedriver.zip 2>/dev/null; then
-            echo "✅ Downloaded from blob storage"
-          else
-            echo "⚠️ Using ChromeDriver as fallback for Edge (Chromium-based)"
-            sudo apt-get install -y chromium-chromedriver
-            sudo ln -sf /usr/lib/chromium-browser/chromedriver /usr/local/bin/msedgedriver
-          fi
-          
-          if [ -f edgedriver.zip ]; then
-            unzip -q edgedriver.zip
-            sudo mv msedgedriver /usr/local/bin/ 2>/dev/null || true
-            sudo chmod +x /usr/local/bin/msedgedriver
-            rm -f edgedriver.zip
-          fi
-          
-          msedgedriver --version 2>/dev/null || echo "⚠️ Using fallback driver"
-          echo "✅ EdgeDriver setup completed"
+          echo "✅ Edge installed: $EDGE_VERSION"
 
-      # ---------- Safari ----------
+      - name: Setup EdgeDriver
+        if: matrix.browser == 'edge'
+        run: |
+          echo "🚗 Installing EdgeDriver..."
+          
+          # Get Edge version
+          EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
+          MAJOR_VERSION=$(echo $EDGE_VERSION | cut -d. -f1)
+          echo "📦 Edge Major Version: $MAJOR_VERSION"
+          
+          # Get matching EdgeDriver version
+          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR_VERSION}")
+          echo "📦 EdgeDriver Version: $DRIVER_VERSION"
+          
+          # Download EdgeDriver
+          DOWNLOAD_URL="https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
+          echo "📥 Downloading from: $DOWNLOAD_URL"
+          
+          wget -q "$DOWNLOAD_URL" -O edgedriver.zip
+          
+          if [ ! -f edgedriver.zip ]; then
+            echo "❌ Failed to download EdgeDriver"
+            exit 1
+          fi
+          
+          # Install EdgeDriver
+          unzip -q edgedriver.zip
+          sudo mv msedgedriver /usr/local/bin/
+          sudo chmod +x /usr/local/bin/msedgedriver
+          rm -f edgedriver.zip
+          
+          echo "✅ EdgeDriver installed successfully"
+
+      - name: Verify Edge Installation
+        if: matrix.browser == 'edge'
+        run: |
+          echo "🟦 Edge Version:"
+          microsoft-edge-stable --version
+          echo "🚗 EdgeDriver Version:"
+          msedgedriver --version
+          echo "📍 EdgeDriver Location:"
+          which msedgedriver
+
+      # ==================== SAFARI SETUP ====================
       - name: Enable Safari Driver
         if: matrix.browser == 'safari'
         run: |
           echo "🧭 Enabling SafariDriver..."
           sudo safaridriver --enable
-          safaridriver --version || true
+          echo "✅ SafariDriver enabled"
 
-      # ---------- Display Versions ----------
-      - name: Display Browser Versions
+      - name: Verify Safari Installation
+        if: matrix.browser == 'safari'
         run: |
-          echo "===================================="
-          echo "🌐 Browser & Driver Versions"
-          echo "===================================="
-          case "${{ matrix.browser }}" in
-            chrome)
-              echo "Chrome:"
-              google-chrome --version || google-chrome-stable --version
-              echo "ChromeDriver:"
-              chromedriver --version
-              ;;
-            firefox)
-              echo "Firefox:"
-              firefox --version
-              echo "GeckoDriver:"
-              geckodriver --version
-              ;;
-            edge)
-              echo "Edge:"
-              microsoft-edge-stable --version
-              echo "EdgeDriver:"
-              msedgedriver --version || echo "⚠️ EdgeDriver not available"
-              ;;
-            safari)
-              echo "Safari:"
-              safaridriver --version
-              ;;
-          esac
-          echo "===================================="
+          echo "🧭 Safari Driver Version:"
+          safaridriver --version
 
-      # ---------- Run Tests ----------
+      # ==================== RUN TESTS ====================
       - name: Run Tests with Maven (${{ matrix.browser }})
         run: mvn clean test -Dbrowser=${{ matrix.browser }} -Dheadless=true
         continue-on-error: true
@@ -181,42 +191,65 @@ jobs:
           BASE_URL: ${{ secrets.BASE_URL }}
           BROWSER: ${{ matrix.browser }}
 
-      # ---------- Post-Test Logs ----------
-      - name: Show Failing Tests Summary
+      # ==================== TEST RESULTS ====================
+      - name: Show Test Results Summary
         if: always()
         run: |
-          echo "======================================="
-          echo "🧪 TEST RESULTS for ${{ matrix.browser }}"
-          echo "======================================="
+          echo "=========================================="
+          echo "🧪 TEST RESULTS - ${{ matrix.browser }}"
+          echo "=========================================="
           echo ""
-          echo "📄 Surefire Reports:"
-          echo "---------------------------------------"
-          find target/surefire-reports -name "*.txt" -exec echo "File: {}" \; -exec cat {} \; 2>/dev/null || echo "⚠️ No .txt reports found"
+          
+          # Surefire Reports
+          if [ -d "target/surefire-reports" ]; then
+            echo "📄 Test Summary:"
+            echo "------------------------------------------"
+            find target/surefire-reports -name "*.txt" -exec cat {} \; 2>/dev/null | grep "Tests run:" || echo "No test summary found"
+            echo ""
+            
+            echo "📊 Failed Tests:"
+            echo "------------------------------------------"
+            find target/surefire-reports -name "*.txt" -exec grep -A 5 "FAILED" {} \; 2>/dev/null || echo "No failures found"
+          else
+            echo "⚠️ No surefire reports found"
+          fi
+          
           echo ""
-          echo "---------------------------------------"
-          echo "📊 XML Reports Summary:"
-          echo "---------------------------------------"
-          find target/surefire-reports -name "*.xml" -exec grep -H "failures\|errors" {} \; 2>/dev/null || echo "⚠️ No .xml reports found"
-          echo ""
-          echo "---------------------------------------"
-          echo "📋 Test Counts:"
-          grep -h "Tests run:" target/surefire-reports/*.txt 2>/dev/null || echo "No test summary found"
-          echo "======================================="
+          echo "=========================================="
 
-      # ---------- Artifacts ----------
-      - name: Upload Test Reports (${{ matrix.browser }})
+      # ==================== UPLOAD ARTIFACTS ====================
+      - name: Upload Extent Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports-${{ matrix.browser }}-${{ matrix.os }}
+          name: extent-report-${{ matrix.browser }}-${{ matrix.os }}
+          path: |
+            test-output/ExtentReport.html
+            test-output/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Cucumber Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cucumber-reports-${{ matrix.browser }}-${{ matrix.os }}
           path: |
             reports/
             target/cucumber-reports/
-            target/surefire-reports/
-            target/extent-report/
           retention-days: 30
+          if-no-files-found: warn
 
-      - name: Upload Screenshots (${{ matrix.browser }})
+      - name: Upload Surefire Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-${{ matrix.browser }}-${{ matrix.os }}
+          path: target/surefire-reports/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -225,32 +258,83 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      # ---------- Fail job if tests failed ----------
+      # ==================== CHECK TEST STATUS ====================
       - name: Check Test Results
         if: always()
         run: |
-          if grep -q "Failures: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
-            echo "❌ Tests failed for ${{ matrix.browser }}"
-            exit 1
-          elif grep -q "Errors: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
-            echo "❌ Tests had errors for ${{ matrix.browser }}"
+          echo "🔍 Checking test results for ${{ matrix.browser }}..."
+          
+          FAILED=false
+          
+          # Check Surefire reports
+          if [ -d "target/surefire-reports" ]; then
+            if grep -q "Failures: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
+              echo "❌ Tests failed for ${{ matrix.browser }}"
+              FAILED=true
+            elif grep -q "Errors: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
+              echo "❌ Tests had errors for ${{ matrix.browser }}"
+              FAILED=true
+            fi
+          fi
+          
+          if [ "$FAILED" = true ]; then
             exit 1
           else
             echo "✅ All tests passed for ${{ matrix.browser }}"
           fi
 
+  # ==================== SUMMARY JOB ====================
   summary:
     name: Test Summary
     runs-on: ubuntu-latest
     needs: [test]
     if: always()
+    
     steps:
-      - name: Check Test Results
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+
+      - name: Generate Summary Report
+        run: |
+          echo "=========================================="
+          echo "📊 CROSS-BROWSER TEST SUMMARY"
+          echo "=========================================="
+          echo ""
+          
+          # List all downloaded artifacts
+          echo "📦 Downloaded Artifacts:"
+          ls -la all-artifacts/ || echo "No artifacts found"
+          echo ""
+          
+          # Show Extent Reports
+          echo "📈 Extent Reports Available:"
+          find all-artifacts -name "ExtentReport.html" -type f || echo "No Extent Reports found"
+          echo ""
+          
+          # Show Screenshots
+          echo "📸 Screenshots Available:"
+          find all-artifacts -name "*.png" -type f | wc -l || echo "0"
+          echo ""
+          
+          echo "=========================================="
+
+      - name: Check Overall Test Results
         run: |
           echo "🎯 Cross-browser test runs completed!"
+          
           if [ "${{ needs.test.result }}" == "failure" ]; then
             echo "❌ Some tests failed. Check the artifacts for details."
             exit 1
           else
-            echo "✅ All tests passed!"
+            echo "✅ All tests passed across all browsers!"
           fi
+
+      - name: Upload Combined Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: combined-test-reports
+          path: all-artifacts/
+          retention-days: 30

@@ -1,303 +1,222 @@
 package com.stepsdefs;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-
-import drivers.DriverFactory;
-import utils.SeleniumActions;
-import config.ConfigReader;          // ✅ Only ConfigReader needed
-import pages.PageLocators;
-import constants.Constants;
 import io.cucumber.java.en.*;
-import java.util.Set;
+import org.openqa.selenium.WebDriver;
+import hooks.Hooks;
+import utils.SeleniumActions;
+import pages.VerificationHelper;
+import config.ConfigReader;
+import constants.Constants;
+import locators.PageLocators;
 
 public class SignupSteps {
-    private WebDriver driver = DriverFactory.getDriver();
+
+    private WebDriver driver;
     private SeleniumActions actions;
-    private String originalWindow;
-    
+    private VerificationHelper verify;
+
     public SignupSteps() {
+        this.driver = Hooks.getDriver();
         this.actions = new SeleniumActions(driver);
-        this.originalWindow = driver.getWindowHandle();
-    }
-    
-    // ==================== LOGIN STEPS ====================
-    
-    @Given("User opens the login page")
-    public void openLoginPage() {
-        actions.navigateTo(Constants.URLs.LOGIN_PAGE);
-        actions.waitForVisibility(PageLocators.LoginPage.LOGIN_PAGE_LOADER);
-    }
-    
-    @When("User enters valid credentials")
-    public void enterCredentials() {
-        actions.type(PageLocators.LoginPage.USERNAME_FIELD, ConfigReader.getUsername());
-        actions.type(PageLocators.LoginPage.PASSWORD_FIELD, ConfigReader.getPassword());
-        actions.click(PageLocators.LoginPage.LOGIN_BUTTON);
-        
-        waitFor(Constants.Timeouts.SHORT_WAIT);
-        System.out.println("credentialsEntered");
-    }
-    
-    @Then("User should be logged in successfully")
-    public void verifyLogin() {
-        actions.verifyUrlContains("https://elearn.bits-pilani.ac.in/");
-        System.out.println("loginVerified");
-    }
-    
-    // ==================== TOP NAVIGATION VERIFICATION ====================
-    
-    @Given("User verifies {string} is displaying in Top Navigation bar")
-    public void verifyTopNavigationElement(String elementName) {
-        By locator = elementName.equalsIgnoreCase(Constants.Elements.BITS_LOGO) 
-            ? PageLocators.TopNavigation.BITS_LOGO 
-            : PageLocators.getElementByText(elementName);
-            
-        actions.waitForVisibility(locator);
-        System.out.println("✅ " + elementName + " is displayed in Top Navigation bar");
-    }
-    
-    // ==================== PROFILE SECTION ====================
-    
-    @Then("User verifies {string} is displaying in Profile Section")
-    public void verifyProfileSection(String elementName) {
-        By locator = elementName.equalsIgnoreCase(Constants.Elements.STUDENT_NAME)
-            ? PageLocators.ProfileSection.STUDENT_NAME
-            : PageLocators.getElementByText(elementName);
-            
-        actions.waitForVisibility(locator);
-        System.out.println("✅ " + elementName + " is displayed in Profile Section");
-    }
-    
-    // ==================== BANNER SECTION ====================
-    
-    @Then("User verifies {string} is displaying in with multiple banners in Dashboard")
-    public void verifyBannerSection(String elementName) {
-        actions.waitForVisibility(PageLocators.BannerSection.BANNER_CONTAINER);
-        
-            System.out.println("✅ " + elementName + " with multiple banners is displayed");
-        } 
-    
-    
-    // ==================== DASHBOARD TILES ====================
-    
-    @Then("User verifies {string} as {string} Tile is displaying in Dashboard")
-    public void verifyDashboardTile(String tileName, String tileDescription) {
-        By tileLocator = PageLocators.getTileByName(tileName);
-        actions.waitForVisibility(tileLocator);
-        System.out.println("✅ " + tileName + " tile is displayed in Dashboard");
-    }
-    
-    // ==================== MY ACADEMICS ====================
-    
-    @When("User Clicks on {string} CTA on {string} Tile in Dashboard")
-    public void clickCTAOnTile(String ctaName, String tileName) {
-        By ctaLocator = PageLocators.getTileCTA(tileName, ctaName);
-        actions.scrollToElement(ctaLocator);
-        actions.click(ctaLocator);
-        System.out.println("✅ Clicked on " + ctaName + " CTA on " + tileName + " tile");
-    }
-    
-    @Then("User verifies {string} as {string}is displaying in Dashboard")
-    public void verifyElementInDashboard(String elementName, String course) {
-    	actions.waitForVisibility(PageLocators.MyCoursesSection.MY_COURSES_HEADING );
-        System.out.println("✅ " + elementName + " is displayed in Dashboard");
-    }
-    
-    // ==================== COURSE SECTION ====================
-    @Then("User verifies {string} is displaying in Dashboard")
-    public void verifyElementsInDashboard(String elementName) {
-        actions.waitForVisibility(PageLocators.MyCoursesSection.AVAILABLE_COURSE);
-        actions.waitForVisibility(PageLocators.MyCoursesSection.COURSE_TILE);
-        
-        // Fetch and print the text from COURSE_TILE
-        String courseTileText = actions.getText(PageLocators.MyCoursesSection.COURSE_TILE);
-        System.out.println("✅ " + elementName + " is displayed in Dashboard with text: " + courseTileText);
+        this.verify = new VerificationHelper(driver, actions);
     }
 
-    @When("User Clicks on {string} CTA on Course Tile")
-    public void clickCTAOnCourseTile(String ctaName) {
-        By ctaLocator = PageLocators.getByText(ctaName);
-        actions.scrollToElement(ctaLocator);
-        actions.click(ctaLocator);
-        System.out.println("✅ Clicked on " + ctaName + " CTA on Course Tile"); 
-        waitForNewTab();
-       
+    // ==================== Login & Navigation Steps ====================
+    
+    @Given("User opens the {string} page")
+    public void openLoginPage(String loginUrl) {
+        
+        actions.navigateTo(loginUrl);
+        verify.waitForPageLoad();
     }
+
+    @When("User enters valid credentials")
+    public void enterCredentials() {
+      
+        String username = getCredential(Constants.USERNAME);
+        String password = getCredential(Constants.PASSWORD);
+        
+        actions.type(PageLocators.LOGIN_USERNAME_INPUT, username);
+        actions.type(PageLocators.LOGIN_PASSWORD_INPUT, password);
+        actions.click(PageLocators.LOGIN_SUBMIT_BUTTON);
+        verify.waitForPageLoad();
+    }
+
+    @Then("User should be logged in successfully")
+    public void verifyLoginSuccess() {
+        verify.verifyLoginSuccess();
+        actions.verifyUrlContains("https://elearn.bits-pilani.ac.in/");
+    }
+
+    // ==================== Top Navigation Verification Steps ====================
+    
+    @Given("User verifies {string} is displaying in Top Navigation bar")
+    public void verifyTopNavigation(String elementName) {
+      
+        verify.verifyTopNavigation(elementName);
+    }
+
+    @When("User clicks on {string} icon to open Profile Section")
+    public void clickProfileIcon(String iconName) {
+
+        actions.click(PageLocators.profileIcon(iconName));
+    }
+
+    // ==================== Banner Section Verification Steps ====================
+    
+    @Then("User verifies {string} is displaying in with multiple banners in Dashboard")
+    public void verifyBannerSection(String sectionName) {
+
+        verify.verifyBannerSection(sectionName);
+    }
+
+    // ==================== Tile Verification Steps ====================
+    
+    @Then("User verifies {string} as {string} Tile is displaying in Dashboard")
+    public void verifyTileWithValue(String tileName, String dataValue) {
+       verify.verifyTilecontent(tileName, dataValue);
+    }
+    
+    @Then("User verifies {string} as {string} is displaying in Dashboard")
+    public void verifycontentWithValue(String elementName, String expectedTitle) {
+        verify.verifyTilecontent(elementName, expectedTitle);
+    }
+    
+    @Given("User verifies {string} Sections and validate the available labs in Dashboard")
+    public void verifyVirtaulLabSection(String elementName) {
+      
+        verify.verifyVirtaulLab(elementName);
+    }
+
+    @Then("User verifies {string} Tile is displaying in Dashboard")
+    public void verifyTile(String tileName) {
+        verify.verifyTile(tileName);
+    }
+
+    // ==================== CTA Click Steps ====================
+    
+    @When("User Clicks on {string} CTA on {string} Tile in Dashboard")
+    public void clickCTAOnTile(String ctaText, String tileName) {
+     
+        verify.clickCTAOnTile(ctaText, tileName);
+        verify.waitForPageLoad();
+    }
+
+    @When("User Clicks on {string} CTA in Elibrary Section")
+    public void clickelibrary(String ctaText) {
+        verify.clickCTAelibrary(ctaText);
+        verify.waitForPageLoad();
+    }
+    @When("User Clicks on {string} CTA on Course Tile")
+    public void clickCTAOnCourseTile(String ctaText) {
+  
+        verify.clickCTAOnCourseTile(ctaText);
+        verify.waitForPageLoad();
+    }
+
+    @When("user verifies and clicks on {string} CTA")
+    public void clickOnVivaProject(String ctaText) {
+  
+        verify.clickVivaProject(ctaText);
+        verify.waitForPageLoad();
+    }
+    // ==================== Course Verification Steps ====================
     
     @Then("User verifies {string} opened in new tab")
-    public void verifyURLInNewTab(String expectedURL) {
-        switchToNewTab();
-        
-        String currentURL = driver.getCurrentUrl();
-        if (!currentURL.contains(expectedURL)) {
-            throw new AssertionError("Expected URL to contain: " + expectedURL + " but got: " + currentURL);
-        }
-        
-        System.out.println("✅ Verified URL opened in new tab: " + expectedURL);
+    public void verifyCourseOpenedInNewTab(String courseTitle) {
+
+        verify.switchToNewTab();
+        verify.waitForPageLoad();
     }
-    
+    @Then("User verifies {string} redirecting in new tab and closed the tab")
+    public void verifyelibraryOpenedInNewTab(String courseTitle) {
+
+        verify.switchToNewTab();
+        verify.waitForPageLoad();
+        verify.closeCurrentTabAndSwitchToMain();
+    }
+
     @Then("User verifies {string} as {string} in Subject Screen and closes the tab")
-    public void verifyCourseDetailAndCloseTab(String elementName, String expectedValue) {
-        By courseDetailLocator = PageLocators.CourseDetailsPage.COURSE_TITLE;
-        actions.waitForVisibility(courseDetailLocator);
-        
-        String actualValue = actions.getText(courseDetailLocator);
-        if (!actualValue.contains(expectedValue)) {
-            throw new AssertionError("Expected " + elementName + " to contain: " + expectedValue + " but got: " + actualValue);
-        }
-        
-        closeCurrentTabAndSwitchBack();
-        System.out.println("✅ Verified " + elementName + " and closed the tab");
+    public void verifyCourseTitle(String elementName, String expectedTitle) {
+
+    	verify.verifyTilecontent(elementName, expectedTitle);
+        verify.closeCurrentTabAndSwitchToMain();
     }
-    
-    // ==================== E-LIBRARY SECTION ====================
+
+    // ==================== Link & Redirection Steps ====================
     
     @Given("User clicks on {string} and verifies it is redirecting to {string} in newtab and close the tab")
-    public void clickAndVerifyRedirectInNewTab(String linkName, String expectedURL) {
-        By linkLocator = linkName.equalsIgnoreCase(Constants.Sections.ELIBRARY)
-            ? PageLocators.ELibrarySection.ELIBRARY_LINK
-            : PageLocators.getLinkByText(linkName);
-            
-        actions.scrollToElement(linkLocator);
-        actions.click(linkLocator);
-        
-        waitForNewTab();
-        switchToNewTab();
-        
-        String currentURL = driver.getCurrentUrl();
-        if (!currentURL.contains(expectedURL)) {
-            throw new AssertionError("Expected URL to contain: " + expectedURL + " but got: " + currentURL);
-        }
-        
-        closeCurrentTabAndSwitchBack();
-        System.out.println("✅ Verified " + linkName + " redirects to " + expectedURL);
+    public void clickAndVerifyRedirection(String linkText, String expectedUrl) {
+   
+    	verify.verifyElementInDashboard(linkText, expectedUrl);
+        verify.closeCurrentTabAndSwitchToMain();
     }
+
+    // ==================== Project URL Steps ====================
     
-    // ==================== VIRTUAL LABS SECTION ====================
+    @Then("user verifies {string} Open in new tab")
+    public void verifyProjectURLOpened(String elementName) {
+ 
+        verify.switchToNewTab();
+        verify.waitForPageLoad();
+        verify.verifyURLOpened(elementName, Constants.PROJECT_PORTAL);
+    }
+
+    // ==================== Dissertation Steps ====================
+    
+    @Then("user verifies {string} as {string} and close the tab")
+    public void verifyDissertationStatus(String elementName, String expectedStatus) {
+ 
+        verify.verifyStatus(elementName, expectedStatus);
+        verify.closeCurrentTabAndSwitchToMain();
+    }
+
+    // ==================== Section Interaction Steps ====================
     
     @Then("User click on {string} Sections and validate the available labs in Dashboard")
-    public void clickOnSectionAndValidateLabs(String sectionName) {
-        By sectionLocator = sectionName.equalsIgnoreCase(Constants.Sections.MY_VIRTUAL_LABS)
-            ? PageLocators.VirtualLabsSection.VIRTUAL_LABS_SECTION
-            : PageLocators.getSectionByName(sectionName);
-            
-        actions.scrollToElement(sectionLocator);
-        actions.click(sectionLocator);
-        
-        System.out.println("✅ Clicked on " + sectionName + " section");
+    public void clickVirtualLabsSection(String sectionName) {
+      
+        verify.clickSection(sectionName);
+        verify.waitForPageLoad();
     }
-    
+
     @Then("User verifies the available labs in Dashboard")
     public void verifyAvailableLabs() {
-        By labsLocator = PageLocators.VirtualLabsSection.AVAILABLE_LABS;
         
-        if (actions.findElements(labsLocator).size() > 0) {
-            System.out.println("✅ Available labs are displayed in Dashboard");
-        } else {
-            throw new AssertionError("No labs found in Dashboard");
-        }
+        verify.verifyAvailableLabs();
     }
-    
-    // ==================== VIVA/PROJECT SECTION ====================
-    
+
     @Given("user clicks on {string} Section")
-    public void clickOnSection(String sectionName) {
-        By sectionLocator = sectionName.equalsIgnoreCase(Constants.Sections.VIVA_PROJECT)
-            ? PageLocators.VivaProjectSection.VIVA_PROJECT_SECTION
-            : PageLocators.getSectionByName(sectionName);
-            
-        actions.scrollToElement(sectionLocator);
-        actions.click(sectionLocator);
-        
-        System.out.println("✅ Clicked on " + sectionName + " section");
+    public void clickVivaProjectSection(String sectionName) {
+     
+        verify.clickSection(sectionName);
+        verify.waitForPageLoad();
     }
+
+    // ==================== Helper Methods ====================
     
-    @Then("user verifies and clicks on {string} CTA")
-    public void verifyAndClickCTA(String ctaName) {
-        By ctaLocator = ctaName.contains("Viva/Project portal")
-            ? PageLocators.VivaProjectSection.GO_TO_PORTAL_CTA
-            : PageLocators.getButtonByText(ctaName);
-            
-        actions.waitForVisibility(ctaLocator);
-        
-        if (!actions.isDisplayed(ctaLocator)) {
-            throw new AssertionError(ctaName + " CTA is not displayed");
+    /**
+     * Get credential from config with fallback
+     */
+    private String getCredential(String key) {
+        String value = ConfigReader.getJsonString(key);
+        if (value == null || value.isEmpty()) {
+            value = ConfigReader.get(key, getDefaultCredential(key));
         }
-        
-        actions.click(ctaLocator);
-        waitForNewTab();
-        
-        System.out.println("✅ Verified and clicked on " + ctaName + " CTA");
+        return value;
     }
     
-    @Then("User Verifies {string} Open in New tab")
-    public void verifyProjectURLInNewTab(String urlDescription) {
-        switchToNewTab();
-        
-        String currentURL = driver.getCurrentUrl();
-        System.out.println("✅ " + urlDescription + " opened in new tab: " + currentURL);
-    }
-    
-    @Then("User verifies {string} as {string} and close the tab")
-    public void verifyElementAndCloseTab(String elementName, String expectedValue) {
-        By elementLocator = elementName.toLowerCase().contains("dissertation")
-            ? PageLocators.ProjectPortalPage.DISSERTATION_RATING
-            : PageLocators.getElementByText(elementName);
-            
-        actions.waitForVisibility(elementLocator);
-        
-        String actualValue = actions.getText(elementLocator);
-        if (!actualValue.contains(expectedValue)) {
-            System.out.println("⚠️ Warning: " + elementName + " value doesn't match. Expected: " + expectedValue + ", Actual: " + actualValue);
-        }
-        
-        closeCurrentTabAndSwitchBack();
-        System.out.println("✅ Verified " + elementName + " and closed the tab");
-    }
-    
-    // ==================== HELPER METHODS ====================
-    
-    private By getElementLocatorByName(String elementName) {
-        switch (elementName.toLowerCase()) {
-            case "My Courses":
-                return PageLocators.MyCoursesSection.MY_COURSES_HEADING;
-            case "Available course":
-                return PageLocators.MyCoursesSection.AVAILABLE_COURSE;
-            case "course title":
-                return PageLocators.CourseDetailsPage.COURSE_TITLE;
+    /**
+     * Get default credential value
+     */
+    private String getDefaultCredential(String key) {
+        switch(key) {
+            case Constants.USERNAME:
+                return "testuser";
+            case Constants.PASSWORD:
+                return "testpass";
             default:
-                return PageLocators.getTileByName(elementName);
+                return "";
         }
-    }
-    
-   
-    private void waitFor(int seconds) {
-        try {
-            Thread.sleep(seconds * 1000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-    
-    private void waitForNewTab() {
-        waitFor(Constants.Timeouts.TAB_SWITCH_WAIT);
-    }
-    
-    private void switchToNewTab() {
-        Set<String> windowHandles = driver.getWindowHandles();
-        for (String handle : windowHandles) {
-            if (!handle.equals(originalWindow)) {
-                driver.switchTo().window(handle);
-                break;
-            }
-        }
-    }
-    
-    private void closeCurrentTabAndSwitchBack() {
-        driver.close();
-        driver.switchTo().window(originalWindow);
-        System.out.println(ConfigReader.getValidationMessage("tabClosed"));
     }
 }

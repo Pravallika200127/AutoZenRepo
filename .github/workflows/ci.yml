@@ -1,112 +1,169 @@
-name: TestRail / Cucumber-TestNG CI
+name: CI AutoZen Pipeline (Single TestRail Case)
 
 on:
   push:
-    branches: [ main, master, develop ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main, master, develop ]
+    branches: [ "main" ]
   workflow_dispatch:
     inputs:
-      caseId:
-        description: "TestRail caseId to execute (supports 40 or C40)"
-        required: false
+      case_id:
+        description: "TestRail Case ID (e.g., 40 or C40)"
+        required: true
         default: "40"
-      headless:
-        description: "Run browser headless? (true/false)"
-        required: false
-        default: "true"
-      testrailEnabled:
-        description: "Enable TestRail integration? (true/false)"
-        required: false
-        default: "true"
 
 jobs:
-  tests:
-    runs-on: ubuntu-latest
+  test:
+    name: Test on ${{ matrix.browser }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chrome
+            os: ubuntu-latest
+          - browser: firefox
+            os: ubuntu-latest
+          - browser: edge
+            os: ubuntu-latest
+
     env:
-      CASE_ID: ${{ github.event.inputs.caseId || '40' }}
-      HEADLESS: ${{ github.event.inputs.headless || 'true' }}
-      TESTRAIL_ENABLED: ${{ github.event.inputs.testrailEnabled || 'true' }}
-      CONFIG_FILE: src/test/resources/config.properties
+      HEADLESS: "true"
+
+      # ---- Static TestRail details ----
+      TESTRAIL_URL: "https://newzen01.testrail.io/"
+      TESTRAIL_USER: "2021hx70001@wilp.bits-pilani.ac.in"
+      TESTRAIL_API_KEY: "Xwuv6cXNPrvCd6Q4YrnJ-pgmm6/QWk0qwetKvl9NP"
+      TESTRAIL_PROJECT_ID: "3"
+      TESTRAIL_SUITE_ID: "7"
+      TESTRAIL_LABELS: "Autozen_TestSuite"
+      TESTRAIL_ENABLED: "true"
 
     steps:
-      - name: 📥 Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: ☕ Set up Temurin JDK 17
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: temurin
           java-version: '17'
+          distribution: 'temurin'
           cache: maven
 
-      - name: 🌐 Install Chrome
+      - name: Cache Maven Packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-
+
+      # ---------- Chrome ----------
+      - name: Setup Chrome
+        if: matrix.browser == 'chrome'
         uses: browser-actions/setup-chrome@v1
 
-      - name: 🔧 Show environment
-        run: |
-          echo "Branch: ${{ github.ref }}"
-          echo "Event:  ${{ github.event_name }}"
-          java -version
-          mvn -version
-          (chrome --version || google-chrome --version)
-          (which chrome || which google-chrome)
+      # ---------- Firefox ----------
+      - name: Setup Firefox
+        if: matrix.browser == 'firefox'
+        uses: browser-actions/setup-firefox@v1
 
-      - name: 📝 Prepare config.properties for CI
+      # ---------- Edge ----------
+      - name: Setup Microsoft Edge
+        if: matrix.browser == 'edge'
         shell: bash
         run: |
-          set -e
-          FILE="$CONFIG_FILE"
-          if [ ! -f "$FILE" ]; then
-            echo "❌ $FILE not found"; exit 1
-          fi
-          set_kv () {
-            local key="$1"; local val="$2"
-            if grep -qE "^${key}=" "$FILE"; then
-              sed -i "s|^${key}=.*|${key}=${val}|" "$FILE"
-            else
-              echo "${key}=${val}" >> "$FILE"
-            fi
-          }
-          RAW_ID="$CASE_ID"
-          CLEAN_ID="${RAW_ID#C}"
-          set_kv "testrail.caseId" "$CLEAN_ID"
-          set_kv "testrail.enabled" "$TESTRAIL_ENABLED"
-          set_kv "browser" "chrome"
-          set_kv "headless" "$HEADLESS"
-          echo "----- config.properties (effective) -----"
-          sed 's/\(apikey=\).*/\1********/g' "$FILE"
-          echo "----------------------------------------"
+          echo "🟦 Installing Microsoft Edge..."
+          sudo apt-get update -qq
+          sudo apt-get install -y curl unzip gpg apt-transport-https wget
+          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list > /dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y microsoft-edge-stable
+          EDGE_VERSION=$(microsoft-edge-stable --version || true)
+          echo "✅ Edge version: $EDGE_VERSION"
 
-      - name: 📦 Build (skip tests)
-        run: mvn -B -ntp clean install -DskipTests
+      # ---------- Display Versions ----------
+      - name: Display Browser Versions
+        run: |
+          echo "🌐 Browser: ${{ matrix.browser }}"
+          case "${{ matrix.browser }}" in
+            chrome)
+              google-chrome --version || google-chrome-stable --version
+              ;;
+            firefox)
+              firefox --version
+              ;;
+            edge)
+              microsoft-edge-stable --version
+              ;;
+          esac
 
-      - name: 🧪 Run Cucumber-TestNG (Chrome)
-        run: mvn -B -ntp test
-        continue-on-error: true
+      # ---------- Generate config.properties ----------
+      - name: Generate config.properties
+        run: |
+          mkdir -p src/test/resources
+          cat > src/test/resources/config.properties <<CFG
+          # ====== Auto-generated for CI ======
+          browser=${{ matrix.browser }}
+          headless=${HEADLESS}
 
-      - name: 📊 Upload test reports
+          # ---- TestRail ----
+          testrail.enabled=${TESTRAIL_ENABLED}
+          testrail.url=${TESTRAIL_URL}
+          testrail.user=${TESTRAIL_USER}
+          testrail.apiKey=${TESTRAIL_API_KEY}
+          testrail.projectId=${TESTRAIL_PROJECT_ID}
+          testrail.suiteId=${TESTRAIL_SUITE_ID}
+          testrail.labels=${TESTRAIL_LABELS}
+          testrail.caseId=${{ github.event.inputs.case_id }}
+          CFG
+
+          echo "✅ Generated src/test/resources/config.properties"
+          sed -E 's/(apiKey) *= *.*/\1=********/Ig' src/test/resources/config.properties
+
+      # ---------- Build ----------
+      - name: Build (no tests)
+        run: mvn -B -q -DskipTests clean package
+
+      # ---------- Run TestRunner ----------
+      - name: Run TestRunner (Case ${{ github.event.inputs.case_id }})
+        run: |
+          mvn -B test \
+            -Dheadless=${HEADLESS} \
+            -Dbrowser=${{ matrix.browser }} \
+            -Dtest=TestRunner
+        env:
+          _JAVA_OPTIONS: -Xmx1024m
+          MAVEN_OPTS: -Xmx1024m
+
+      # ---------- Upload Reports ----------
+      - name: Upload Reports (${{ matrix.browser }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: reports-and-logs
+          name: reports-${{ matrix.browser }}
           path: |
             reports/**
             test-output/**
-            target/surefire-reports/**
+            **/surefire-reports/**
+            **/failsafe-reports/**
+          if-no-files-found: ignore
           retention-days: 30
 
   summary:
+    name: Test Summary
     runs-on: ubuntu-latest
-    needs: [tests]
+    needs: [test]
     if: always()
     steps:
-      - name: ✅ Summary
+      - name: Summary
         run: |
-          echo "=========================================="
-          echo "TEST EXECUTION COMPLETED"
-          echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
-          echo "Triggered by: ${{ github.event_name }}"
-          echo "Artifacts contain cucumber json/html, extent & screenshots."
-          echo "=========================================="
+          echo "🎯 Tests finished for case ${{ github.event.inputs.case_id }}"
+          if [ "${{ needs.test.result }}" = "failure" ]; then
+            echo "❌ Some browser runs failed. Check artifacts."
+            exit 1
+          else
+            echo "✅ All browser runs passed."
+          fi

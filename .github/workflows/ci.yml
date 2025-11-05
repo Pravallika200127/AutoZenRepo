@@ -2,9 +2,9 @@ name: CI AutoZen Pipeline (Single TestRail Case)
 
 on:
   push:
-    branches: [ "Autozen_integration" ]
+    branches: [ "AutoZen_integration" ]
   pull_request:
-    branches: [ "Autozen_integration" ]
+    branches: [ "AutoZen_integration" ]
   workflow_dispatch:
     inputs:
       case_id:

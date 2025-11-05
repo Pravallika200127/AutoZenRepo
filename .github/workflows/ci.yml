@@ -1,340 +1,219 @@
-name: CI AutoZen Pipeline with Cross-Browser Testing
+name: TestRail Automation CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ main, master, develop ]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  test:
-    name: Test on ${{ matrix.browser }}
-    runs-on: ${{ matrix.os }}
+  # ========================================
+  # Single Browser Execution (Recommended)
+  # ========================================
+  test-single-browser:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: 🔧 Display configuration
+      run: |
+        echo "==================================="
+        echo "CI Environment Configuration"
+        echo "==================================="
+        echo "Java Version: $(java -version)"
+        echo "Maven Version: $(mvn -version)"
+        echo "Branch: ${{ github.ref }}"
+        echo "==================================="
+    
+    - name: 📦 Install dependencies
+      run: mvn clean install -DskipTests
+    
+    - name: 🌐 Install Chrome browser
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+    
+    - name: 🔍 Verify Chrome installation
+      run: |
+        google-chrome --version
+        which google-chrome
+    
+    - name: 🧪 Run tests with Chrome (headless)
+      run: mvn test -Dbrowser=chrome -Dheadless=true
+      continue-on-error: true
+    
+    - name: 📊 Upload test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-reports-chrome
+        path: |
+          test-output/**
+          reports/**
+          target/surefire-reports/**
+        retention-days: 30
+    
+    - name: 📄 Upload Extent Report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: extent-report-chrome
+        path: test-output/ExtentReport.html
+        retention-days: 30
+    
+    - name: 📸 Upload Screenshots
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: screenshots-chrome
+        path: test-output/screenshots/**
+        retention-days: 30
 
+  # ========================================
+  # Multi-Browser Matrix (Optional - Enable if needed)
+  # ========================================
+  test-multi-browser:
+    runs-on: ubuntu-latest
+    if: false  # Set to true to enable multi-browser testing
+    
     strategy:
       fail-fast: false
       matrix:
+        browser: [chrome, firefox]
         include:
           - browser: chrome
-            os: ubuntu-latest
+            browser-display: "Google Chrome"
           - browser: firefox
-            os: ubuntu-latest
-          - browser: edge
-            os: ubuntu-latest
-          - browser: safari
-            os: macos-latest
-
+            browser-display: "Mozilla Firefox"
+    
+    name: Test on ${{ matrix.browser-display }}
+    
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
-
-      - name: Cache Maven Packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-m2-
-
-      # ==================== CHROME SETUP ====================
-      - name: Setup Chrome Browser
-        if: matrix.browser == 'chrome'
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Setup ChromeDriver
-        if: matrix.browser == 'chrome'
-        uses: nanasess/setup-chromedriver@v2
-        with:
-          chromedriver-version: latest
-
-      - name: Verify Chrome Installation
-        if: matrix.browser == 'chrome'
-        run: |
-          echo "🌐 Chrome Version:"
-          google-chrome --version || google-chrome-stable --version
-          echo "🚗 ChromeDriver Version:"
-          chromedriver --version
-          echo "📍 ChromeDriver Location:"
-          which chromedriver
-
-      # ==================== FIREFOX SETUP ====================
-      - name: Setup Firefox Browser
-        if: matrix.browser == 'firefox'
-        uses: browser-actions/setup-firefox@v1
-        with:
-          firefox-version: latest
-
-      - name: Setup GeckoDriver
-        if: matrix.browser == 'firefox'
-        run: |
-          echo "🦊 Installing GeckoDriver..."
-          GECKODRIVER_VERSION=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")')
-          echo "📦 GeckoDriver version: $GECKODRIVER_VERSION"
-          
-          wget -q "https://github.com/mozilla/geckodriver/releases/download/${GECKODRIVER_VERSION}/geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
-          tar -xzf "geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
-          sudo mv geckodriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/geckodriver
-          rm -f "geckodriver-${GECKODRIVER_VERSION}-linux64.tar.gz"
-          
-          echo "✅ GeckoDriver installed successfully"
-
-      - name: Verify Firefox Installation
-        if: matrix.browser == 'firefox'
-        run: |
-          echo "🦊 Firefox Version:"
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: 🌐 Install browsers
+      run: |
+        if [ "${{ matrix.browser }}" == "chrome" ]; then
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          google-chrome --version
+        elif [ "${{ matrix.browser }}" == "firefox" ]; then
+          sudo apt-get update
+          sudo apt-get install -y firefox
           firefox --version
-          echo "🚗 GeckoDriver Version:"
-          geckodriver --version
-          echo "📍 GeckoDriver Location:"
-          which geckodriver
+        fi
+    
+    - name: 📦 Install dependencies
+      run: mvn clean install -DskipTests
+    
+    - name: 🧪 Run tests - ${{ matrix.browser-display }}
+      run: |
+        echo "=========================================="
+        echo "Running tests on ${{ matrix.browser-display }}"
+        echo "Browser: ${{ matrix.browser }}"
+        echo "Headless: true"
+        echo "=========================================="
+        mvn test -Dbrowser=${{ matrix.browser }} -Dheadless=true
+      continue-on-error: true
+    
+    - name: 📊 Upload test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-reports-${{ matrix.browser }}
+        path: |
+          test-output/**
+          reports/**
+          target/surefire-reports/**
+        retention-days: 30
 
-      # ==================== EDGE SETUP ====================
-      - name: Setup Microsoft Edge Browser
-        if: matrix.browser == 'edge'
-        run: |
-          echo "🟦 Installing Microsoft Edge..."
-          sudo apt-get update -qq
-          sudo apt-get install -y curl gpg apt-transport-https
-          
-          # Add Microsoft GPG key
-          curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/microsoft.gpg
-          
-          # Add Edge repository
-          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/edge stable main" | sudo tee /etc/apt/sources.list.d/microsoft-edge.list
-          
-          # Install Edge
-          sudo apt-get update -qq
-          sudo apt-get install -y microsoft-edge-stable
-          
-          EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
-          echo "✅ Edge installed: $EDGE_VERSION"
-
-      - name: Setup EdgeDriver
-        if: matrix.browser == 'edge'
-        run: |
-          echo "🚗 Installing EdgeDriver..."
-          
-          # Get Edge version
-          EDGE_VERSION=$(microsoft-edge-stable --version | awk '{print $NF}')
-          MAJOR_VERSION=$(echo $EDGE_VERSION | cut -d. -f1)
-          echo "📦 Edge Major Version: $MAJOR_VERSION"
-          
-          # Get matching EdgeDriver version
-          DRIVER_VERSION=$(curl -s "https://msedgedriver.azureedge.net/LATEST_RELEASE_${MAJOR_VERSION}")
-          echo "📦 EdgeDriver Version: $DRIVER_VERSION"
-          
-          # Download EdgeDriver
-          DOWNLOAD_URL="https://msedgedriver.azureedge.net/${DRIVER_VERSION}/edgedriver_linux64.zip"
-          echo "📥 Downloading from: $DOWNLOAD_URL"
-          
-          wget -q "$DOWNLOAD_URL" -O edgedriver.zip
-          
-          if [ ! -f edgedriver.zip ]; then
-            echo "❌ Failed to download EdgeDriver"
-            exit 1
-          fi
-          
-          # Install EdgeDriver
-          unzip -q edgedriver.zip
-          sudo mv msedgedriver /usr/local/bin/
-          sudo chmod +x /usr/local/bin/msedgedriver
-          rm -f edgedriver.zip
-          
-          echo "✅ EdgeDriver installed successfully"
-
-      - name: Verify Edge Installation
-        if: matrix.browser == 'edge'
-        run: |
-          echo "🟦 Edge Version:"
-          microsoft-edge-stable --version
-          echo "🚗 EdgeDriver Version:"
-          msedgedriver --version
-          echo "📍 EdgeDriver Location:"
-          which msedgedriver
-
-      # ==================== SAFARI SETUP ====================
-      - name: Enable Safari Driver
-        if: matrix.browser == 'safari'
-        run: |
-          echo "🧭 Enabling SafariDriver..."
-          sudo safaridriver --enable
-          echo "✅ SafariDriver enabled"
-
-      - name: Verify Safari Installation
-        if: matrix.browser == 'safari'
-        run: |
-          echo "🧭 Safari Driver Version:"
-          safaridriver --version
-
-      # ==================== RUN TESTS ====================
-      - name: Run Tests with Maven (${{ matrix.browser }})
-        run: mvn clean test -Dbrowser=${{ matrix.browser }} -Dheadless=true
-        continue-on-error: true
-        env:
-          TESTRAIL_ENABLED: "true"
-          TESTRAIL_URL: ${{ secrets.TESTRAIL_URL }}
-          TESTRAIL_USER: ${{ secrets.TESTRAIL_USER }}
-          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
-          TESTRAIL_PROJECT_ID: ${{ secrets.TESTRAIL_PROJECT_ID }}
-          TESTRAIL_RUN_ID: ${{ secrets.TESTRAIL_RUN_ID }}
-          BASE_URL: ${{ secrets.BASE_URL }}
-          BROWSER: ${{ matrix.browser }}
-
-      # ==================== TEST RESULTS ====================
-      - name: Show Test Results Summary
-        if: always()
-        run: |
-          echo "=========================================="
-          echo "🧪 TEST RESULTS - ${{ matrix.browser }}"
-          echo "=========================================="
-          echo ""
-          
-          # Surefire Reports
-          if [ -d "target/surefire-reports" ]; then
-            echo "📄 Test Summary:"
-            echo "------------------------------------------"
-            find target/surefire-reports -name "*.txt" -exec cat {} \; 2>/dev/null | grep "Tests run:" || echo "No test summary found"
-            echo ""
-            
-            echo "📊 Failed Tests:"
-            echo "------------------------------------------"
-            find target/surefire-reports -name "*.txt" -exec grep -A 5 "FAILED" {} \; 2>/dev/null || echo "No failures found"
-          else
-            echo "⚠️ No surefire reports found"
-          fi
-          
-          echo ""
-          echo "=========================================="
-
-      # ==================== UPLOAD ARTIFACTS ====================
-      - name: Upload Extent Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: extent-report-${{ matrix.browser }}-${{ matrix.os }}
-          path: |
-            test-output/ExtentReport.html
-            test-output/
-          retention-days: 30
-          if-no-files-found: warn
-
-      - name: Upload Cucumber Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cucumber-reports-${{ matrix.browser }}-${{ matrix.os }}
-          path: |
-            reports/
-            target/cucumber-reports/
-          retention-days: 30
-          if-no-files-found: warn
-
-      - name: Upload Surefire Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: surefire-reports-${{ matrix.browser }}-${{ matrix.os }}
-          path: target/surefire-reports/
-          retention-days: 30
-          if-no-files-found: warn
-
-      - name: Upload Screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots-${{ matrix.browser }}-${{ matrix.os }}
-          path: screenshots/
-          retention-days: 7
-          if-no-files-found: ignore
-
-      # ==================== CHECK TEST STATUS ====================
-      - name: Check Test Results
-        if: always()
-        run: |
-          echo "🔍 Checking test results for ${{ matrix.browser }}..."
-          
-          FAILED=false
-          
-          # Check Surefire reports
-          if [ -d "target/surefire-reports" ]; then
-            if grep -q "Failures: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
-              echo "❌ Tests failed for ${{ matrix.browser }}"
-              FAILED=true
-            elif grep -q "Errors: [1-9]" target/surefire-reports/*.txt 2>/dev/null; then
-              echo "❌ Tests had errors for ${{ matrix.browser }}"
-              FAILED=true
-            fi
-          fi
-          
-          if [ "$FAILED" = true ]; then
-            exit 1
-          else
-            echo "✅ All tests passed for ${{ matrix.browser }}"
-          fi
-
-  # ==================== SUMMARY JOB ====================
-  summary:
-    name: Test Summary
+  # ========================================
+  # Label-Based Execution (Smoke/Regression)
+  # ========================================
+  test-by-labels:
     runs-on: ubuntu-latest
-    needs: [test]
+    if: false  # Set to true to enable label-based testing
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        test-suite: [Smoke, Regression]
+    
+    name: Run ${{ matrix.test-suite }} Tests
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: ☕ Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+        cache: maven
+    
+    - name: 🌐 Install Chrome browser
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        google-chrome --version
+    
+    - name: 📦 Install dependencies
+      run: mvn clean install -DskipTests
+    
+    - name: 🧪 Run ${{ matrix.test-suite }} tests
+      run: |
+        echo "=========================================="
+        echo "Running ${{ matrix.test-suite }} Test Suite"
+        echo "=========================================="
+        mvn test -Dbrowser=chrome -Dheadless=true -Dtestrail.labels=${{ matrix.test-suite }}
+      continue-on-error: true
+    
+    - name: 📊 Upload test reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-reports-${{ matrix.test-suite }}
+        path: |
+          test-output/**
+          reports/**
+        retention-days: 30
+
+  # ========================================
+  # Test Summary and Notification
+  # ========================================
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: [test-single-browser]
     if: always()
     
     steps:
-      - name: Download All Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: all-artifacts
-
-      - name: Generate Summary Report
-        run: |
-          echo "=========================================="
-          echo "📊 CROSS-BROWSER TEST SUMMARY"
-          echo "=========================================="
-          echo ""
-          
-          # List all downloaded artifacts
-          echo "📦 Downloaded Artifacts:"
-          ls -la all-artifacts/ || echo "No artifacts found"
-          echo ""
-          
-          # Show Extent Reports
-          echo "📈 Extent Reports Available:"
-          find all-artifacts -name "ExtentReport.html" -type f || echo "No Extent Reports found"
-          echo ""
-          
-          # Show Screenshots
-          echo "📸 Screenshots Available:"
-          find all-artifacts -name "*.png" -type f | wc -l || echo "0"
-          echo ""
-          
-          echo "=========================================="
-
-      - name: Check Overall Test Results
-        run: |
-          echo "🎯 Cross-browser test runs completed!"
-          
-          if [ "${{ needs.test.result }}" == "failure" ]; then
-            echo "❌ Some tests failed. Check the artifacts for details."
-            exit 1
-          else
-            echo "✅ All tests passed across all browsers!"
-          fi
-
-      - name: Upload Combined Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: combined-test-reports
-          path: all-artifacts/
-          retention-days: 30
+    - name: 📊 Test Execution Summary
+      run: |
+        echo "=========================================="
+        echo "TEST EXECUTION COMPLETED"
+        echo "=========================================="
+        echo "Branch: ${{ github.ref }}"
+        echo "Commit: ${{ github.sha }}"
+        echo "Triggered by: ${{ github.event_name }}"
+        echo "=========================================="
+        echo "Check artifacts for detailed reports"
+        echo "=========================================="

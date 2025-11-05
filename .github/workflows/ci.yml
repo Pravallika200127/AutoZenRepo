@@ -1,219 +1,107 @@
 name: TestRail Automation CI
-
+ 
 on:
   push:
     branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master, develop ]
-  workflow_dispatch:  # Allow manual trigger
-
+  workflow_dispatch:
+    inputs:
+      caseId:
+        description: "TestRail caseId to run (e.g., 40)"
+        required: false
+        default: "40"
+ 
 jobs:
-  # ========================================
-  # Single Browser Execution (Recommended)
-  # ========================================
-  test-single-browser:
+  tests:
     runs-on: ubuntu-latest
-    
+    env:
+      # If run manually, use the input; for push/PR, default to 40
+      TESTRAIL_CASE_ID: ${{ github.event.inputs.caseId || '40' }}
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v3
-    
-    - name: ☕ Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-    
-    - name: 🔧 Display configuration
-      run: |
-        echo "==================================="
-        echo "CI Environment Configuration"
-        echo "==================================="
-        echo "Java Version: $(java -version)"
-        echo "Maven Version: $(mvn -version)"
-        echo "Branch: ${{ github.ref }}"
-        echo "==================================="
-    
-    - name: 📦 Install dependencies
-      run: mvn clean install -DskipTests
-    
-    - name: 🌐 Install Chrome browser
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-    
-    - name: 🔍 Verify Chrome installation
-      run: |
-        google-chrome --version
-        which google-chrome
-    
-    - name: 🧪 Run tests with Chrome (headless)
-      run: mvn test -Dbrowser=chrome -Dheadless=true
-      continue-on-error: true
-    
-    - name: 📊 Upload test reports
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: test-reports-chrome
-        path: |
-          test-output/**
-          reports/**
-          target/surefire-reports/**
-        retention-days: 30
-    
-    - name: 📄 Upload Extent Report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: extent-report-chrome
-        path: test-output/ExtentReport.html
-        retention-days: 30
-    
-    - name: 📸 Upload Screenshots
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: screenshots-chrome
-        path: test-output/screenshots/**
-        retention-days: 30
-
-  # ========================================
-  # Multi-Browser Matrix (Optional - Enable if needed)
-  # ========================================
-  test-multi-browser:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+ 
+      - name: ☕ Setup Temurin JDK 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+ 
+      - name: 🔧 Show environment
+        run: |
+          echo "Branch: ${{ github.ref }}"
+          echo "Event:  ${{ github.event_name }}"
+          java -version
+          mvn -version
+          echo "Selected TestRail caseId: $TESTRAIL_CASE_ID"
+ 
+      - name: 📦 Build (skip tests)
+        run: mvn -B -ntp clean install -DskipTests
+ 
+      - name: 🌐 Install Chrome
+        # Stable, fast install compared to apt
+        uses: browser-actions/setup-chrome@v1
+ 
+      - name: 🔍 Verify Chrome
+        run: |
+          (chrome --version || google-chrome --version)
+          (which chrome || which google-chrome)
+ 
+      - name: 🧪 Run TestNG (Chrome headless) for case ${{ env.TESTRAIL_CASE_ID }}
+        # If your framework uses a different prop key, change -Dtestrail.caseId=...
+        run: |
+          mvn -B -ntp test \
+            -Dbrowser=chrome \
+            -Dheadless=true \
+            -Dtestrail.caseId=${{ env.TESTRAIL_CASE_ID }}
+        continue-on-error: true
+ 
+      - name: 📊 Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            test-output/**
+            **/test-output/**
+            target/surefire-reports/**
+          retention-days: 30
+ 
+      - name: 📄 Upload Extent Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extent-report
+          path: |
+            test-output/ExtentReport.html
+            **/ExtentReport.html
+          retention-days: 30
+ 
+      - name: 📸 Upload Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: |
+            test-output/screenshots/**
+            **/screenshots/**
+            target/screenshots/**
+          retention-days: 30
+ 
+  summary:
     runs-on: ubuntu-latest
-    if: false  # Set to true to enable multi-browser testing
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        browser: [chrome, firefox]
-        include:
-          - browser: chrome
-            browser-display: "Google Chrome"
-          - browser: firefox
-            browser-display: "Mozilla Firefox"
-    
-    name: Test on ${{ matrix.browser-display }}
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v3
-    
-    - name: ☕ Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-    
-    - name: 🌐 Install browsers
-      run: |
-        if [ "${{ matrix.browser }}" == "chrome" ]; then
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-          google-chrome --version
-        elif [ "${{ matrix.browser }}" == "firefox" ]; then
-          sudo apt-get update
-          sudo apt-get install -y firefox
-          firefox --version
-        fi
-    
-    - name: 📦 Install dependencies
-      run: mvn clean install -DskipTests
-    
-    - name: 🧪 Run tests - ${{ matrix.browser-display }}
-      run: |
-        echo "=========================================="
-        echo "Running tests on ${{ matrix.browser-display }}"
-        echo "Browser: ${{ matrix.browser }}"
-        echo "Headless: true"
-        echo "=========================================="
-        mvn test -Dbrowser=${{ matrix.browser }} -Dheadless=true
-      continue-on-error: true
-    
-    - name: 📊 Upload test reports
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: test-reports-${{ matrix.browser }}
-        path: |
-          test-output/**
-          reports/**
-          target/surefire-reports/**
-        retention-days: 30
-
-  # ========================================
-  # Label-Based Execution (Smoke/Regression)
-  # ========================================
-  test-by-labels:
-    runs-on: ubuntu-latest
-    if: false  # Set to true to enable label-based testing
-    
-    strategy:
-      fail-fast: false
-      matrix:
-        test-suite: [Smoke, Regression]
-    
-    name: Run ${{ matrix.test-suite }} Tests
-    
-    steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v3
-    
-    - name: ☕ Set up JDK 11
-      uses: actions/setup-java@v3
-      with:
-        java-version: '11'
-        distribution: 'temurin'
-        cache: maven
-    
-    - name: 🌐 Install Chrome browser
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        google-chrome --version
-    
-    - name: 📦 Install dependencies
-      run: mvn clean install -DskipTests
-    
-    - name: 🧪 Run ${{ matrix.test-suite }} tests
-      run: |
-        echo "=========================================="
-        echo "Running ${{ matrix.test-suite }} Test Suite"
-        echo "=========================================="
-        mvn test -Dbrowser=chrome -Dheadless=true -Dtestrail.labels=${{ matrix.test-suite }}
-      continue-on-error: true
-    
-    - name: 📊 Upload test reports
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: test-reports-${{ matrix.test-suite }}
-        path: |
-          test-output/**
-          reports/**
-        retention-days: 30
-
-  # ========================================
-  # Test Summary and Notification
-  # ========================================
-  test-summary:
-    runs-on: ubuntu-latest
-    needs: [test-single-browser]
+    needs: [tests]
     if: always()
-    
     steps:
-    - name: 📊 Test Execution Summary
-      run: |
-        echo "=========================================="
-        echo "TEST EXECUTION COMPLETED"
-        echo "=========================================="
-        echo "Branch: ${{ github.ref }}"
-        echo "Commit: ${{ github.sha }}"
-        echo "Triggered by: ${{ github.event_name }}"
-        echo "=========================================="
-        echo "Check artifacts for detailed reports"
-        echo "=========================================="
+      - name: ✅ Summary
+        run: |
+          echo "=========================================="
+          echo "TEST EXECUTION COMPLETED"
+          echo "Branch: ${{ github.ref }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Triggered by: ${{ github.event_name }}"
+          echo "=========================================="
+          echo "Artifacts contain reports, extent report & screenshots."
+          echo "=========================================="

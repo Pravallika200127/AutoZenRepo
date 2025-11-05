@@ -33,15 +33,14 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: ☕ Set up Temurin JDK 11
+      - name: ☕ Set up Temurin JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '11'
+          java-version: '17'
           cache: maven
 
       - name: 🌐 Install Chrome
-        # More reliable than apt-get
         uses: browser-actions/setup-chrome@v1
 
       - name: 🔧 Show environment
@@ -61,39 +60,29 @@ jobs:
           if [ ! -f "$FILE" ]; then
             echo "❌ $FILE not found"; exit 1
           fi
-
-          # Helper to set/replace key=value in properties file (append if missing)
           set_kv () {
-            local key="$1"; shift
-            local val="$1"; shift
+            local key="$1"; local val="$2"
             if grep -qE "^${key}=" "$FILE"; then
               sed -i "s|^${key}=.*|${key}=${val}|" "$FILE"
             else
               echo "${key}=${val}" >> "$FILE"
             fi
           }
-
-          # Normalize caseId: allow C40 or 40, but store numeric as your runner expects later
           RAW_ID="$CASE_ID"
-          CLEAN_ID="${RAW_ID#C}"     # strip leading C if present
-
-          # Force browser=headless as requested; you can change to false via input
+          CLEAN_ID="${RAW_ID#C}"
           set_kv "testrail.caseId" "$CLEAN_ID"
           set_kv "testrail.enabled" "$TESTRAIL_ENABLED"
           set_kv "browser" "chrome"
           set_kv "headless" "$HEADLESS"
-
           echo "----- config.properties (effective) -----"
-          cat "$FILE" | sed 's/\(apikey=\).*/\1********/g'  # mask API key in logs
+          sed 's/\(apikey=\).*/\1********/g' "$FILE"
           echo "----------------------------------------"
 
       - name: 📦 Build (skip tests)
         run: mvn -B -ntp clean install -DskipTests
 
       - name: 🧪 Run Cucumber-TestNG (Chrome)
-        # Your TestRunner generates feature file(s) from TestRail using config.properties
-        run: |
-          mvn -B -ntp test
+        run: mvn -B -ntp test
         continue-on-error: true
 
       - name: 📊 Upload test reports

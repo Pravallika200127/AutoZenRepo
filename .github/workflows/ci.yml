@@ -1,5 +1,5 @@
-name: TestRail Automation CI
- 
+name: TestRail / Cucumber-TestNG CI
+
 on:
   push:
     branches: [ main, master, develop ]
@@ -8,88 +8,105 @@ on:
   workflow_dispatch:
     inputs:
       caseId:
-        description: "TestRail caseId to run (e.g., 40)"
+        description: "TestRail caseId to execute (supports 40 or C40)"
         required: false
         default: "40"
- 
+      headless:
+        description: "Run browser headless? (true/false)"
+        required: false
+        default: "true"
+      testrailEnabled:
+        description: "Enable TestRail integration? (true/false)"
+        required: false
+        default: "true"
+
 jobs:
   tests:
     runs-on: ubuntu-latest
     env:
-      # If run manually, use the input; for push/PR, default to 40
-      TESTRAIL_CASE_ID: ${{ github.event.inputs.caseId || '40' }}
+      CASE_ID: ${{ github.event.inputs.caseId || '40' }}
+      HEADLESS: ${{ github.event.inputs.headless || 'true' }}
+      TESTRAIL_ENABLED: ${{ github.event.inputs.testrailEnabled || 'true' }}
+      CONFIG_FILE: src/test/resources/config.properties
+
     steps:
       - name: 📥 Checkout
         uses: actions/checkout@v4
- 
-      - name: ☕ Setup Temurin JDK 11
+
+      - name: ☕ Set up Temurin JDK 11
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '11'
           cache: maven
- 
+
+      - name: 🌐 Install Chrome
+        # More reliable than apt-get
+        uses: browser-actions/setup-chrome@v1
+
       - name: 🔧 Show environment
         run: |
           echo "Branch: ${{ github.ref }}"
           echo "Event:  ${{ github.event_name }}"
           java -version
           mvn -version
-          echo "Selected TestRail caseId: $TESTRAIL_CASE_ID"
- 
-      - name: 📦 Build (skip tests)
-        run: mvn -B -ntp clean install -DskipTests
- 
-      - name: 🌐 Install Chrome
-        # Stable, fast install compared to apt
-        uses: browser-actions/setup-chrome@v1
- 
-      - name: 🔍 Verify Chrome
-        run: |
           (chrome --version || google-chrome --version)
           (which chrome || which google-chrome)
- 
-      - name: 🧪 Run TestNG (Chrome headless) for case ${{ env.TESTRAIL_CASE_ID }}
-        # If your framework uses a different prop key, change -Dtestrail.caseId=...
+
+      - name: 📝 Prepare config.properties for CI
+        shell: bash
         run: |
-          mvn -B -ntp test \
-            -Dbrowser=chrome \
-            -Dheadless=true \
-            -Dtestrail.caseId=${{ env.TESTRAIL_CASE_ID }}
+          set -e
+          FILE="$CONFIG_FILE"
+          if [ ! -f "$FILE" ]; then
+            echo "❌ $FILE not found"; exit 1
+          fi
+
+          # Helper to set/replace key=value in properties file (append if missing)
+          set_kv () {
+            local key="$1"; shift
+            local val="$1"; shift
+            if grep -qE "^${key}=" "$FILE"; then
+              sed -i "s|^${key}=.*|${key}=${val}|" "$FILE"
+            else
+              echo "${key}=${val}" >> "$FILE"
+            fi
+          }
+
+          # Normalize caseId: allow C40 or 40, but store numeric as your runner expects later
+          RAW_ID="$CASE_ID"
+          CLEAN_ID="${RAW_ID#C}"     # strip leading C if present
+
+          # Force browser=headless as requested; you can change to false via input
+          set_kv "testrail.caseId" "$CLEAN_ID"
+          set_kv "testrail.enabled" "$TESTRAIL_ENABLED"
+          set_kv "browser" "chrome"
+          set_kv "headless" "$HEADLESS"
+
+          echo "----- config.properties (effective) -----"
+          cat "$FILE" | sed 's/\(apikey=\).*/\1********/g'  # mask API key in logs
+          echo "----------------------------------------"
+
+      - name: 📦 Build (skip tests)
+        run: mvn -B -ntp clean install -DskipTests
+
+      - name: 🧪 Run Cucumber-TestNG (Chrome)
+        # Your TestRunner generates feature file(s) from TestRail using config.properties
+        run: |
+          mvn -B -ntp test
         continue-on-error: true
- 
+
       - name: 📊 Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: reports-and-logs
           path: |
+            reports/**
             test-output/**
-            **/test-output/**
             target/surefire-reports/**
           retention-days: 30
- 
-      - name: 📄 Upload Extent Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: extent-report
-          path: |
-            test-output/ExtentReport.html
-            **/ExtentReport.html
-          retention-days: 30
- 
-      - name: 📸 Upload Screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: |
-            test-output/screenshots/**
-            **/screenshots/**
-            target/screenshots/**
-          retention-days: 30
- 
+
   summary:
     runs-on: ubuntu-latest
     needs: [tests]
@@ -102,6 +119,5 @@ jobs:
           echo "Branch: ${{ github.ref }}"
           echo "Commit: ${{ github.sha }}"
           echo "Triggered by: ${{ github.event_name }}"
-          echo "=========================================="
-          echo "Artifacts contain reports, extent report & screenshots."
+          echo "Artifacts contain cucumber json/html, extent & screenshots."
           echo "=========================================="
